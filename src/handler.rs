@@ -109,45 +109,38 @@ impl EventHandler for Handler {
                 let mut buf = String::new();
 
                 loop {
-                    let mut flag = false;
-
                     if let Ok(lines) = bufread.read_line(&mut buf) {
                         if lines == 0 {
-                            flag = true;
-                        } else {
-                            // JVMからの出力をそのまま出力する。
-                            // 改行コードが既に含まれているのでprint!マクロを使う
-                            print!("[Minecraft] {}", buf);
+                            break;
+                        }
 
-                            // サーバの起動が完了したとき
-                            if buf.contains("Done") {
-                                thread_tx.send(ServerMessage::Done).unwrap();
-                            }
+                        // JVMからの出力をそのまま出力する。
+                        // 改行コードが既に含まれているのでprint!マクロを使う
+                        print!("[Minecraft] {}", buf);
 
-                            // EULAへの同意が必要な時
-                            if buf.contains("You need to agree") {
-                                thread_tx
+                        // サーバの起動が完了したとき
+                        if buf.contains("Done") {
+                            thread_tx.send(ServerMessage::Done).unwrap();
+                        }
+
+                        // EULAへの同意が必要な時
+                        if buf.contains("You need to agree") {
+                            thread_tx
                                     .send(ServerMessage::Error(
                                         "サーバを開始するには、EULAに同意する必要があります。eula.txtを編集してください。"
                                             .to_string(),
                                     ))
                                     .unwrap();
-                            }
-
-                            // Minecraftサーバ終了を検知
-                            if buf.contains("All dimensions are saved") {
-                                thread_tx.send(ServerMessage::Exit).unwrap();
-                                break;
-                            }
-
-                            thread_tx.send(ServerMessage::Info(buf.clone())).unwrap();
-
-                            buf.clear();
                         }
-                    }
 
-                    if flag {
-                        break;
+                        // Minecraftサーバ終了を検知
+                        if buf.contains("All dimensions are saved") {
+                            break;
+                        }
+
+                        thread_tx.send(ServerMessage::Info(buf.clone())).unwrap();
+
+                        buf.clear();
                     }
                 }
 
