@@ -9,6 +9,7 @@ use serenity::model::gateway::Ready;
 use serenity::model::prelude::ChannelId;
 use serenity::prelude::*;
 use std::io::{BufRead, BufReader, Write};
+use std::path::Path;
 use std::process::{exit, ChildStdin};
 use std::sync::{mpsc, Arc};
 use std::thread;
@@ -77,7 +78,8 @@ impl EventHandler for Handler {
             let jar_file = self.config.server.jar_file.clone();
             let work_dir = self.config.server.work_dir.clone();
             let (thread_tx, rx) = mpsc::channel::<ServerMessage>();
-            let (thread_tx2, rx2) = mpsc::channel::<ChildStdin>();
+            let (tx2, rx2) = mpsc::channel::<ChildStdin>();
+            let thread_tx2 = tx2.clone();
 
             // Minecraft サーバスレッド
             thread::spawn(move || {
@@ -233,6 +235,21 @@ async fn main() {
         println!("{}", err);
         exit(-1);
     });
+
+    if !Path::new(&format!(
+        "{}/{}",
+        config.server.work_dir, config.server.jar_file
+    ))
+    .exists()
+    {
+        let current = std::env::current_dir().unwrap();
+        let current = current.to_str().unwrap();
+        println!(
+            "サーバが存在しません。{}{}\\{}に置いてください",
+            current, config.server.work_dir, config.server.jar_file
+        );
+        exit(-1);
+    }
 
     let intents = GatewayIntents::GUILD_MESSAGES
         | GatewayIntents::DIRECT_MESSAGES
