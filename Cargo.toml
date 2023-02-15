@@ -1,6 +1,6 @@
 [package]
 name = "mcsv-handler-discord"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -11,4 +11,3 @@ serde_derive = "1.0.152"
 toml = "0.7.2"
 serenity = { version = "0.11", default-features = false, features = ["client", "gateway", "rustls_backend", "model"] }
 tokio = { version = "1.21.2", features = ["macros", "rt-multi-thread"] }
-colored = "2.0.0"

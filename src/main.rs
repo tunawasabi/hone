@@ -1,6 +1,4 @@
-use colored::*;
 use mcsv_handler_discord::executor::{mcserver_new, read_config};
-use mcsv_handler_discord::print_mclog;
 use mcsv_handler_discord::types::{Config, ServerMessage};
 use serenity::async_trait;
 use serenity::http::Http;
@@ -56,7 +54,12 @@ impl MessageSender {
 #[async_trait]
 impl EventHandler for Handler {
     async fn message(&self, _: Context, msg: Message) {
-        if msg.author.id != self.config.permission.user_id {
+        if !self
+            .config
+            .permission
+            .user_id
+            .contains(msg.author.id.as_u64())
+        {
             return;
         }
 
@@ -115,7 +118,7 @@ impl EventHandler for Handler {
                         } else {
                             // JVMからの出力をそのまま出力する。
                             // 改行コードが既に含まれているのでprint!マクロを使う
-                            print_mclog!("{}", buf);
+                            print!("[Minecraft] {}", buf);
 
                             if buf.contains("Done") {
                                 thread_tx.send(ServerMessage::Done).unwrap();

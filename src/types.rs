@@ -15,7 +15,7 @@ pub struct Client {
 #[derive(Deserialize)]
 pub struct Permission {
     pub channel_id: u64,
-    pub user_id: u64,
+    pub user_id: Vec<u64>,
 }
 
 #[derive(Deserialize)]
