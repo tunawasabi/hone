@@ -16,7 +16,6 @@ pub fn mcserver_new(jar_file: &str, work_dir: &str, memory: &str) -> io::Result<
         .arg("nogui")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
         .spawn()
 }
 

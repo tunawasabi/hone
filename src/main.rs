@@ -98,7 +98,6 @@ impl EventHandler for Handler {
                 };
 
                 let mut bufread = BufReader::new(server_thread.stdout.as_mut().unwrap());
-                let mut bufread_err = BufReader::new(server_thread.stderr.as_mut().unwrap());
 
                 thread_tx2
                     .send(server_thread.stdin.take().unwrap())
@@ -106,14 +105,13 @@ impl EventHandler for Handler {
 
                 // 出力
                 let mut buf = String::new();
-                let mut buf_err = String::new();
 
                 loop {
-                    let mut flag = (false, false);
+                    let mut flag = false;
 
                     if let Ok(lines) = bufread.read_line(&mut buf) {
                         if lines == 0 {
-                            flag.0 = true;
+                            flag = true;
                         } else {
                             // JVMからの出力をそのまま出力する。
                             // 改行コードが既に含まれているのでprint!マクロを使う
@@ -121,6 +119,15 @@ impl EventHandler for Handler {
 
                             if buf.contains("Done") {
                                 thread_tx.send(ServerMessage::Done).unwrap();
+                            }
+
+                            if buf.contains("You need to agree") {
+                                thread_tx
+                                    .send(ServerMessage::Error(
+                                        "サーバを開始するには、EULAに同意する必要があります。eula.txtを編集してください。"
+                                            .to_string(),
+                                    ))
+                                    .unwrap();
                             }
 
                             // Minecraftサーバ終了を検知
@@ -131,19 +138,9 @@ impl EventHandler for Handler {
 
                             buf.clear();
                         }
-                    } else if let Ok(n) = bufread_err.read_line(&mut buf_err) {
-                        if n > 0 {
-                            print!("{} {}", "[  ERROR  ]".red().bold(), buf_err);
-                            thread_tx
-                                .send(ServerMessage::Error(buf_err.clone()))
-                                .unwrap();
-                            buf_err.clear();
-                        } else {
-                            flag.1 = true
-                        }
                     }
 
-                    if flag.0 && flag.1 {
+                    if flag {
                         break;
                     }
                 }
@@ -171,6 +168,8 @@ impl EventHandler for Handler {
                         match v {
                             ServerMessage::Exit => {
                                 println!("サーバが停止しました。");
+                                let mut stdin = stdin.lock().await;
+                                *stdin = None;
                                 MessageSender::send("終了しました".to_string(), &http, channel)
                                     .await;
                             }
@@ -237,7 +236,7 @@ async fn main() {
     });
 
     if !Path::new(&format!(
-        "{}/{}",
+        "{}\\{}",
         config.server.work_dir, config.server.jar_file
     ))
     .exists()
@@ -245,7 +244,7 @@ async fn main() {
         let current = std::env::current_dir().unwrap();
         let current = current.to_str().unwrap();
         println!(
-            "サーバが存在しません。{}{}\\{}に置いてください",
+            "サーバが存在しません。{}\\{}\\{}に置いてください",
             current, config.server.work_dir, config.server.jar_file
         );
         exit(-1);
