@@ -1,4 +1,4 @@
-use crate::types::{Config, ServerMessage};
+use crate::types::Config;
 use serenity::http::Http;
 use serenity::model::channel::Message;
 use serenity::model::gateway::Ready;
@@ -14,6 +14,13 @@ pub struct Handler {
     pub http: Arc<Http>,
     pub thread_stdin: Arc<Mutex<Option<ChildStdin>>>,
     pub command_inputed: Arc<Mutex<bool>>,
+}
+
+enum ServerMessage {
+    Done,
+    Exit,
+    Info(String),
+    Error(String),
 }
 
 impl Handler {
