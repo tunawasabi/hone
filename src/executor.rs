@@ -26,5 +26,8 @@ pub fn read_config() -> Result<Config, String> {
         Err(err) => return Err(format!("設定ファイルを開くことができませんでした: {}", err)),
     };
 
-    toml::from_str(&config).unwrap_or_else(|err| Err(format!("設定に誤りがあります: {}", err)))?
+    match toml::from_str::<Config>(&config) {
+        Ok(config) => Ok(config),
+        Err(err) => Err(format!("設定に誤りがあります: {}", err)),
+    }
 }
