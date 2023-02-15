@@ -74,6 +74,7 @@ impl EventHandler for Handler {
             // 標準入力が存在するなら, 既に起動しているのでreturnする
             if let Some(_) = *(self.thread_stdin.lock().await) {
                 self.send("すでに起動しています！".to_string()).await;
+                return;
             }
 
             self.send("開始しています……".to_string()).await;
