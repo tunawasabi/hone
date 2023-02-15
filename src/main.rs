@@ -1,6 +1,7 @@
 use colored::*;
-use mcsv_handler_discord::excecutor::mcserver_new;
-use mcsv_handler_discord::types::Config;
+use mcsv_handler_discord::executor::{mcserver_new, read_config};
+use mcsv_handler_discord::print_mclog;
+use mcsv_handler_discord::types::{Config, ServerMessage};
 use serenity::async_trait;
 use serenity::http::Http;
 use serenity::model::channel::Message;
@@ -10,9 +11,8 @@ use serenity::prelude::*;
 use std::io::{BufRead, BufReader, Write};
 use std::process::{exit, ChildStdin};
 use std::sync::{mpsc, Arc};
-use std::{fs, thread};
+use std::thread;
 use tokio::runtime::Handle;
-use toml;
 
 struct Handler {
     config: Config,
@@ -21,12 +21,6 @@ struct Handler {
 }
 
 struct MessageSender;
-
-enum ServerStatus {
-    Done,
-    Exit,
-    Error(String),
-}
 
 impl Handler {
     fn new(config: Config) -> Handler {
@@ -82,7 +76,7 @@ impl EventHandler for Handler {
             let memory = self.config.server.memory.clone();
             let jar_file = self.config.server.jar_file.clone();
             let work_dir = self.config.server.work_dir.clone();
-            let (thread_tx, rx) = mpsc::channel::<ServerStatus>();
+            let (thread_tx, rx) = mpsc::channel::<ServerMessage>();
             let (thread_tx2, rx2) = mpsc::channel::<ChildStdin>();
 
             // Minecraft サーバスレッド
@@ -92,7 +86,7 @@ impl EventHandler for Handler {
                     Ok(child) => child,
                     Err(err) => {
                         thread_tx
-                            .send(ServerStatus::Error(format!(
+                            .send(ServerMessage::Error(format!(
                                 "Minecraftサーバのプロセスを起動できませんでした: {}",
                                 err
                             )))
@@ -121,20 +115,15 @@ impl EventHandler for Handler {
                         } else {
                             // JVMからの出力をそのまま出力する。
                             // 改行コードが既に含まれているのでprint!マクロを使う
-                            print!(
-                                "[{}{}] {}",
-                                "MINE".green().bold(),
-                                "CRAFT".truecolor(122, 82, 49).bold(),
-                                buf
-                            );
+                            print_mclog!("{}", buf);
 
                             if buf.contains("Done") {
-                                thread_tx.send(ServerStatus::Done).unwrap();
+                                thread_tx.send(ServerMessage::Done).unwrap();
                             }
 
                             // Minecraftサーバ終了を検知
                             if buf.contains("All dimensions are saved") {
-                                thread_tx.send(ServerStatus::Exit).unwrap();
+                                thread_tx.send(ServerMessage::Exit).unwrap();
                                 break;
                             }
 
@@ -144,7 +133,7 @@ impl EventHandler for Handler {
                         if n > 0 {
                             print!("{} {}", "[  ERROR  ]".red().bold(), buf_err);
                             thread_tx
-                                .send(ServerStatus::Error(buf_err.clone()))
+                                .send(ServerMessage::Error(buf_err.clone()))
                                 .unwrap();
                             buf_err.clear();
                         } else {
@@ -157,7 +146,7 @@ impl EventHandler for Handler {
                     }
                 }
 
-                thread_tx.send(ServerStatus::Exit).unwrap();
+                thread_tx.send(ServerMessage::Exit).unwrap();
             });
 
             // Minecraftサーバへの標準入力 (stdin) を取得する
@@ -178,12 +167,12 @@ impl EventHandler for Handler {
                     let stdin = Arc::clone(&stdin);
                     tokio_handle.spawn(async move {
                         match v {
-                            ServerStatus::Exit => {
+                            ServerMessage::Exit => {
                                 println!("サーバが停止しました。");
                                 MessageSender::send("終了しました".to_string(), &http, channel)
                                     .await;
                             }
-                            ServerStatus::Done => {
+                            ServerMessage::Done => {
                                 MessageSender::send(
                                     "起動完了！接続できます。".to_string(),
                                     &http,
@@ -191,7 +180,7 @@ impl EventHandler for Handler {
                                 )
                                 .await;
                             }
-                            ServerStatus::Error(e) => {
+                            ServerMessage::Error(e) => {
                                 MessageSender::send(
                                     format!(" エラーが発生しました:\n```{}\n```", e),
                                     &http,
@@ -240,13 +229,8 @@ impl EventHandler for Handler {
 
 #[tokio::main]
 async fn main() {
-    let config = fs::read_to_string("config.toml").unwrap_or_else(|err| {
-        println!("設定ファイルを開くことができませんでした: {}", err);
-        exit(-1);
-    });
-
-    let config: Config = toml::from_str(&config).unwrap_or_else(|err| {
-        println!("設定に誤りがあります: {}", err);
+    let config = read_config().unwrap_or_else(|err| {
+        println!("{}", err);
         exit(-1);
     });
 
