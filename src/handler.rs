@@ -35,12 +35,22 @@ impl Handler {
         }
     }
 
-    pub async fn send(&self, message: String) {
+    async fn send(&self, message: String) {
         let channel = ChannelId(self.config.permission.channel_id);
 
         if let Err(e) = channel.say(&self.http, message).await {
             println!("{}", e);
         }
+    }
+
+    #[inline]
+    fn is_allowed_user(&self, id: u64) -> bool {
+        self.config.permission.user_id.contains(&id)
+    }
+
+    #[inline]
+    fn is_allowed_channel(&self, id: u64) -> bool {
+        id == self.config.permission.channel_id
     }
 }
 
@@ -59,16 +69,11 @@ impl MessageSender {
 #[serenity::async_trait]
 impl EventHandler for Handler {
     async fn message(&self, _: Context, msg: Message) {
-        if !self
-            .config
-            .permission
-            .user_id
-            .contains(msg.author.id.as_u64())
-        {
+        if !self.is_allowed_user(*msg.author.id.as_u64()) {
             return;
         }
 
-        if msg.channel_id != self.config.permission.channel_id {
+        if !self.is_allowed_channel(*msg.channel_id.as_u64()) {
             return;
         }
 
@@ -159,65 +164,67 @@ impl EventHandler for Handler {
             let mut stdin = self.thread_stdin.lock().await;
             *stdin = Some(rx2.recv().unwrap());
 
-            let http = Arc::clone(&self.http);
-            let channel = self.config.permission.channel_id;
-            let stdin = Arc::clone(&self.thread_stdin);
-            let inputed = Arc::clone(&self.command_inputed);
+            {
+                let http = Arc::clone(&self.http);
+                let channel = self.config.permission.channel_id;
+                let stdin = Arc::clone(&self.thread_stdin);
+                let inputed = Arc::clone(&self.command_inputed);
 
-            let tokio_handle = tokio::runtime::Handle::current();
+                let tokio_handle = tokio::runtime::Handle::current();
 
-            // メッセージ処理を行うスレッド
-            thread::spawn(move || {
-                for v in rx {
-                    let http = Arc::clone(&http);
-                    let stdin = Arc::clone(&stdin);
-                    let inputed = Arc::clone(&inputed);
+                // メッセージ処理を行うスレッド
+                thread::spawn(move || {
+                    for v in rx {
+                        let http = Arc::clone(&http);
+                        let stdin = Arc::clone(&stdin);
+                        let inputed = Arc::clone(&inputed);
 
-                    tokio_handle.spawn(async move {
-                        match v {
-                            ServerMessage::Exit => {
-                                println!("サーバが停止しました。");
-                                let mut stdin = stdin.lock().await;
-                                *stdin = None;
-                                MessageSender::send("終了しました".to_string(), &http, channel)
-                                    .await;
-                            }
-                            ServerMessage::Done => {
-                                MessageSender::send(
-                                    "起動完了！接続できます。".to_string(),
-                                    &http,
-                                    channel,
-                                )
-                                .await;
-                            }
-                            ServerMessage::Info(message) => {
-                                // ユーザからコマンドの入力があった時のみ返信する
-                                let mut inputed = inputed.lock().await;
-                                if *inputed {
+                        tokio_handle.spawn(async move {
+                            match v {
+                                ServerMessage::Exit => {
+                                    println!("サーバが停止しました。");
+                                    let mut stdin = stdin.lock().await;
+                                    *stdin = None;
+                                    MessageSender::send("終了しました".to_string(), &http, channel)
+                                        .await;
+                                }
+                                ServerMessage::Done => {
                                     MessageSender::send(
-                                        format!("```{}\n```", message),
+                                        "起動完了！接続できます。".to_string(),
                                         &http,
                                         channel,
                                     )
                                     .await;
+                                }
+                                ServerMessage::Info(message) => {
+                                    // ユーザからコマンドの入力があった時のみ返信する
+                                    let mut inputed = inputed.lock().await;
+                                    if *inputed {
+                                        MessageSender::send(
+                                            format!("```{}\n```", message),
+                                            &http,
+                                            channel,
+                                        )
+                                        .await;
 
-                                    *inputed = false;
+                                        *inputed = false;
+                                    }
+                                }
+                                ServerMessage::Error(e) => {
+                                    MessageSender::send(
+                                        format!(" エラーが発生しました:\n```{}\n```", e),
+                                        &http,
+                                        channel,
+                                    )
+                                    .await;
+                                    let mut stdin = stdin.lock().await;
+                                    *stdin = None;
                                 }
                             }
-                            ServerMessage::Error(e) => {
-                                MessageSender::send(
-                                    format!(" エラーが発生しました:\n```{}\n```", e),
-                                    &http,
-                                    channel,
-                                )
-                                .await;
-                                let mut stdin = stdin.lock().await;
-                                *stdin = None;
-                            }
-                        }
-                    });
-                }
-            });
+                        });
+                    }
+                });
+            }
         }
 
         //コマンド入力
