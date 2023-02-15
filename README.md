@@ -1,5 +1,5 @@
 # mcsv-handler-discord
-Minecraft Server Manager at Discord v0.1.0
+Minecraft Server Manager at Discord v0.1.2
 
 ## はじめに
 Discord Developer Portalにてアクセストークンの取得が必要です。
@@ -12,6 +12,12 @@ Discord Developer Portalにてアクセストークンの取得が必要です�
 3. 設定したチャンネルで `!mcstart` と入力するとサーバが開始します。
 4. 設定したチャンネルで `!mcend` と入力するとサーバが停止します。
 5. このアプリケーションを終了したい時は、`Ctrl+c` を入力もしくは設定したチャンネルで `!mcsvend` を入力してください。
+
+### コマンド
+起動中のサーバでコマンドを実行するには、`!mcc <コマンド名>` を入力して下さい。
+```
+!mcc say hello
+```
 
 ## 設定ファイル
 `config.toml` を実行ファイルと同じディレクトリに置いてください。

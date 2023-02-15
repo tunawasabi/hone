@@ -17,6 +17,7 @@ struct Handler {
     config: Config,
     http: Arc<Http>,
     thread_stdin: Arc<Mutex<Option<ChildStdin>>>,
+    command_inputed: Arc<Mutex<bool>>,
 }
 
 struct MessageSender;
@@ -29,6 +30,7 @@ impl Handler {
             config,
             http,
             thread_stdin: stdin,
+            command_inputed: Arc::new(Mutex::new(false)),
         }
     }
 
@@ -120,10 +122,12 @@ impl EventHandler for Handler {
                             // 改行コードが既に含まれているのでprint!マクロを使う
                             print!("[Minecraft] {}", buf);
 
+                            // サーバの起動が完了したとき
                             if buf.contains("Done") {
                                 thread_tx.send(ServerMessage::Done).unwrap();
                             }
 
+                            // EULAへの同意が必要な時
                             if buf.contains("You need to agree") {
                                 thread_tx
                                     .send(ServerMessage::Error(
@@ -138,6 +142,8 @@ impl EventHandler for Handler {
                                 thread_tx.send(ServerMessage::Exit).unwrap();
                                 break;
                             }
+
+                            thread_tx.send(ServerMessage::Info(buf.clone())).unwrap();
 
                             buf.clear();
                         }
@@ -159,6 +165,7 @@ impl EventHandler for Handler {
             let http = Arc::clone(&self.http);
             let channel = self.config.permission.channel_id;
             let stdin = Arc::clone(&self.thread_stdin);
+            let inputed = Arc::clone(&self.command_inputed);
 
             let tokio_handle = Handle::current();
 
@@ -167,6 +174,8 @@ impl EventHandler for Handler {
                 for v in rx {
                     let http = Arc::clone(&http);
                     let stdin = Arc::clone(&stdin);
+                    let inputed = Arc::clone(&inputed);
+
                     tokio_handle.spawn(async move {
                         match v {
                             ServerMessage::Exit => {
@@ -184,6 +193,20 @@ impl EventHandler for Handler {
                                 )
                                 .await;
                             }
+                            ServerMessage::Info(message) => {
+                                // ユーザからコマンドの入力があった時のみ返信する
+                                let mut inputed = inputed.lock().await;
+                                if *inputed {
+                                    MessageSender::send(
+                                        format!("```{}\n```", message),
+                                        &http,
+                                        channel,
+                                    )
+                                    .await;
+
+                                    *inputed = false;
+                                }
+                            }
                             ServerMessage::Error(e) => {
                                 MessageSender::send(
                                     format!(" エラーが発生しました:\n```{}\n```", e),
@@ -200,9 +223,33 @@ impl EventHandler for Handler {
             });
         }
 
+        //コマンド入力
+        if msg.content.starts_with("!mcc") {
+            let stdin = self.thread_stdin.lock().await;
+
+            match stdin.as_ref() {
+                Some(mut v) => {
+                    // 引数部分 (5文字目以降) を取り出す
+                    let command = &msg.content[5..];
+
+                    v.write_all(format!("{}\n", command).as_bytes()).unwrap();
+                    self.send("コマンドを送信しました".to_string()).await;
+
+                    let mut inputed = self.command_inputed.lock().await;
+                    *inputed = true;
+                }
+                None => {
+                    self.send("起動していません！".to_string()).await;
+                }
+            }
+
+            return;
+        }
+
         // サーバ停止コマンド
         if msg.content == "!mcend" {
             let mut stdin = self.thread_stdin.lock().await;
+            let mut inputed = self.command_inputed.lock().await;
 
             match stdin.as_ref() {
                 Some(mut v) => {
@@ -210,6 +257,7 @@ impl EventHandler for Handler {
                     self.send("終了しています……".to_string()).await;
                     v.write_all(b"stop\n").unwrap();
                     *stdin = None;
+                    *inputed = false;
                 }
                 None => {
                     self.send("起動していません！".to_string()).await;
