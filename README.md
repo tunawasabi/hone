@@ -1,5 +1,5 @@
 # mcsv-handler-discord
-Minecraft Server Manager at Discord v0.1.2
+Minecraft Server Manager at Discord v0.1.3
 
 ## はじめに
 Discord Developer Portalにてアクセストークンの取得が必要です。
@@ -25,7 +25,7 @@ Discord Developer Portalにてアクセストークンの取得が必要です�
 テンプレート:
 ```toml
 # mcsv-handler-discord 設定
-# v 0.1.2
+# v 0.1.3
 
 [client] # クライアント設定
 
