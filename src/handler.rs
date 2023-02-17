@@ -1,4 +1,5 @@
-use crate::types::{Config, ServerMessage};
+use crate::types::Config;
+use chrono;
 use serenity::http::Http;
 use serenity::model::channel::Message;
 use serenity::model::gateway::Ready;
@@ -9,11 +10,21 @@ use std::process::{exit, ChildStdin};
 use std::sync::{mpsc, Arc};
 use std::thread;
 
+type ArcMutex<T> = Arc<Mutex<T>>;
+
 pub struct Handler {
-    pub config: Config,
-    pub http: Arc<Http>,
-    pub thread_stdin: Arc<Mutex<Option<ChildStdin>>>,
-    pub command_inputed: Arc<Mutex<bool>>,
+    config: Config,
+    http: Arc<Http>,
+    thread_stdin: ArcMutex<Option<ChildStdin>>,
+    command_inputed: ArcMutex<bool>,
+    thread_id: ArcMutex<Option<u64>>,
+}
+
+enum ServerMessage {
+    Done,
+    Exit,
+    Info(String),
+    Error(String),
 }
 
 impl Handler {
@@ -25,26 +36,41 @@ impl Handler {
             http,
             thread_stdin: stdin,
             command_inputed: Arc::new(Mutex::new(false)),
+            thread_id: Arc::new(Mutex::new(None)),
         }
     }
 
-    pub async fn send(&self, message: String) {
+    async fn send(&self, message: String) {
         let channel = ChannelId(self.config.permission.channel_id);
 
         if let Err(e) = channel.say(&self.http, message).await {
             println!("{}", e);
         }
     }
+
+    #[inline]
+    fn is_allowed_user(&self, id: u64) -> bool {
+        self.config.permission.user_id.contains(&id)
+    }
+
+    #[inline]
+    fn is_allowed_channel(&self, id: u64) -> bool {
+        id == self.config.permission.channel_id
+    }
 }
 
 struct MessageSender;
 
 impl MessageSender {
-    async fn send(message: String, http: &Http, channel: u64) {
+    async fn send(message: String, http: &Http, channel: u64) -> Option<Message> {
         let channel = ChannelId(channel);
 
-        if let Err(e) = channel.say(http, message).await {
-            println!("{}", e);
+        match channel.say(http, message).await {
+            Ok(msg) => Some(msg),
+            Err(e) => {
+                println!("{}", e);
+                None
+            }
         }
     }
 }
@@ -52,16 +78,11 @@ impl MessageSender {
 #[serenity::async_trait]
 impl EventHandler for Handler {
     async fn message(&self, _: Context, msg: Message) {
-        if !self
-            .config
-            .permission
-            .user_id
-            .contains(msg.author.id.as_u64())
-        {
+        if !self.is_allowed_user(*msg.author.id.as_u64()) {
             return;
         }
 
-        if msg.channel_id != self.config.permission.channel_id {
+        if !self.is_allowed_channel(*msg.channel_id.as_u64()) {
             return;
         }
 
@@ -99,55 +120,46 @@ impl EventHandler for Handler {
                         }
                     };
 
-                let mut bufread = BufReader::new(server_thread.stdout.as_mut().unwrap());
-
                 thread_tx2
                     .send(server_thread.stdin.take().unwrap())
                     .unwrap();
 
+                let mut bufread = BufReader::new(server_thread.stdout.as_mut().unwrap());
                 // 出力
                 let mut buf = String::new();
-
                 loop {
-                    let mut flag = false;
-
                     if let Ok(lines) = bufread.read_line(&mut buf) {
                         if lines == 0 {
-                            flag = true;
-                        } else {
-                            // JVMからの出力をそのまま出力する。
-                            // 改行コードが既に含まれているのでprint!マクロを使う
-                            print!("[Minecraft] {}", buf);
+                            break;
+                        }
 
-                            // サーバの起動が完了したとき
-                            if buf.contains("Done") {
-                                thread_tx.send(ServerMessage::Done).unwrap();
-                            }
+                        // JVMからの出力をそのまま出力する。
+                        // 改行コードが既に含まれているのでprint!マクロを使う
+                        print!("[Minecraft] {}", buf);
 
-                            // EULAへの同意が必要な時
-                            if buf.contains("You need to agree") {
-                                thread_tx
+                        // サーバの起動が完了したとき
+                        if buf.contains("Done") {
+                            thread_tx.send(ServerMessage::Done).unwrap();
+                        }
+
+                        // EULAへの同意が必要な時
+                        if buf.contains("You need to agree") {
+                            thread_tx
                                     .send(ServerMessage::Error(
                                         "サーバを開始するには、EULAに同意する必要があります。eula.txtを編集してください。"
                                             .to_string(),
                                     ))
                                     .unwrap();
-                            }
-
-                            // Minecraftサーバ終了を検知
-                            if buf.contains("All dimensions are saved") {
-                                thread_tx.send(ServerMessage::Exit).unwrap();
-                                break;
-                            }
-
-                            thread_tx.send(ServerMessage::Info(buf.clone())).unwrap();
-
-                            buf.clear();
                         }
-                    }
 
-                    if flag {
-                        break;
+                        // Minecraftサーバ終了を検知
+                        if buf.contains("All dimensions are saved") {
+                            break;
+                        }
+
+                        thread_tx.send(ServerMessage::Info(buf.clone())).unwrap();
+
+                        buf.clear();
                     }
                 }
 
@@ -159,65 +171,90 @@ impl EventHandler for Handler {
             let mut stdin = self.thread_stdin.lock().await;
             *stdin = Some(rx2.recv().unwrap());
 
-            let http = Arc::clone(&self.http);
-            let channel = self.config.permission.channel_id;
-            let stdin = Arc::clone(&self.thread_stdin);
-            let inputed = Arc::clone(&self.command_inputed);
+            {
+                let http = Arc::clone(&self.http);
+                let channel = self.config.permission.channel_id;
+                let stdin = Arc::clone(&self.thread_stdin);
+                let inputed = Arc::clone(&self.command_inputed);
+                let thread_id = Arc::clone(&self.thread_id);
 
-            let tokio_handle = tokio::runtime::Handle::current();
+                let tokio_handle = tokio::runtime::Handle::current();
 
-            // メッセージ処理を行うスレッド
-            thread::spawn(move || {
-                for v in rx {
-                    let http = Arc::clone(&http);
-                    let stdin = Arc::clone(&stdin);
-                    let inputed = Arc::clone(&inputed);
+                // メッセージ処理を行うスレッド
+                thread::spawn(move || {
+                    for v in rx {
+                        let http = Arc::clone(&http);
+                        let stdin = Arc::clone(&stdin);
+                        let inputed = Arc::clone(&inputed);
+                        let thread_id = Arc::clone(&thread_id);
 
-                    tokio_handle.spawn(async move {
-                        match v {
-                            ServerMessage::Exit => {
-                                println!("サーバが停止しました。");
-                                let mut stdin = stdin.lock().await;
-                                *stdin = None;
-                                MessageSender::send("終了しました".to_string(), &http, channel)
-                                    .await;
-                            }
-                            ServerMessage::Done => {
-                                MessageSender::send(
-                                    "起動完了！接続できます。".to_string(),
-                                    &http,
-                                    channel,
-                                )
-                                .await;
-                            }
-                            ServerMessage::Info(message) => {
-                                // ユーザからコマンドの入力があった時のみ返信する
-                                let mut inputed = inputed.lock().await;
-                                if *inputed {
+                        tokio_handle.spawn(async move {
+                            match v {
+                                ServerMessage::Exit => {
+                                    println!("サーバが停止しました。");
+                                    let mut stdin = stdin.lock().await;
+                                    *stdin = None;
+                                    MessageSender::send("終了しました".to_string(), &http, channel)
+                                        .await;
+                                }
+                                ServerMessage::Done => {
+                                    let invoked_message = MessageSender::send(
+                                        "サーバが起動しました！サーバログをスレッドから確認できます。".to_string(),
+                                        &http,
+                                        channel,
+                                    )
+                                    .await
+                                    .unwrap();
+
+                                    let thread = ChannelId(channel)
+                                        .create_public_thread(&http, invoked_message, |v| {
+                                            v.name(format!(
+                                                "Minecraftサーバログ {}",
+                                                chrono::Local::now().format("%Y/%m/%d %H:%M")
+                                            ))
+                                            .auto_archive_duration(60)
+                                        })
+                                        .await
+                                        .unwrap();
+
+                                    let mut thread_id = thread_id.lock().await;
+                                    *thread_id = Some(thread.id.0);
+                                }
+                                ServerMessage::Info(message) => {
+                                    // ユーザからコマンドの入力があった時のみ返信する
+                                    let mut inputed = inputed.lock().await;
+                                    if *inputed {
+                                        MessageSender::send(
+                                            format!("```{}\n```", message),
+                                            &http,
+                                            channel,
+                                        )
+                                        .await;
+
+                                        *inputed = false;
+                                    }
+
+                                    // スレッドが設定されているなら、スレッドに送信する
+                                    let thread_id = thread_id.lock().await;
+                                        if let Some(v) = *thread_id {
+                                        MessageSender::send(message, &http, v).await;
+                                    }
+                                }
+                                ServerMessage::Error(e) => {
                                     MessageSender::send(
-                                        format!("```{}\n```", message),
+                                        format!(" エラーが発生しました:\n```{}\n```", e),
                                         &http,
                                         channel,
                                     )
                                     .await;
-
-                                    *inputed = false;
+                                    let mut stdin = stdin.lock().await;
+                                    *stdin = None;
                                 }
                             }
-                            ServerMessage::Error(e) => {
-                                MessageSender::send(
-                                    format!(" エラーが発生しました:\n```{}\n```", e),
-                                    &http,
-                                    channel,
-                                )
-                                .await;
-                                let mut stdin = stdin.lock().await;
-                                *stdin = None;
-                            }
-                        }
-                    });
-                }
-            });
+                        });
+                    }
+                });
+            }
         }
 
         //コマンド入力
@@ -247,14 +284,22 @@ impl EventHandler for Handler {
         if msg.content == "!mcend" {
             let mut stdin = self.thread_stdin.lock().await;
             let mut inputed = self.command_inputed.lock().await;
+            let mut thread_id = self.thread_id.lock().await;
 
             match stdin.as_ref() {
                 Some(mut v) => {
                     println!("stopping...");
                     self.send("終了しています……".to_string()).await;
                     v.write_all(b"stop\n").unwrap();
+
+                    ChannelId(thread_id.unwrap())
+                        .edit_thread(&self.http, |thread| thread.archived(true))
+                        .await
+                        .unwrap();
+
                     *stdin = None;
                     *inputed = false;
+                    *thread_id = None;
                 }
                 None => {
                     self.send("起動していません！".to_string()).await;

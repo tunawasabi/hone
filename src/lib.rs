@@ -2,9 +2,9 @@ use serenity::prelude::*;
 use std::path::Path;
 use std::process::exit;
 
-pub mod executor;
-pub mod handler;
-pub mod types;
+mod executor;
+mod handler;
+mod types;
 
 pub async fn start() {
     let config = executor::read_config().unwrap_or_else(|err| {
@@ -32,7 +32,7 @@ pub async fn start() {
         | GatewayIntents::MESSAGE_CONTENT;
 
     let mut client = Client::builder(&config.client.secret, intents)
-        .event_handler(crate::handler::Handler::new(config))
+        .event_handler(handler::Handler::new(config))
         .await
         .expect("Err creating client");
 
