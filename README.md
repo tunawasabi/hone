@@ -1,5 +1,6 @@
 # mcsv-handler-discord
 Minecraft Server Manager at Discord v0.2.0
+
 MinecraftサーバをDiscordのBOTを通じて起動・停止・コマンドの送信ができるクライアントアプリケーションです。
 
 ## はじめる前に
