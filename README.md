@@ -1,9 +1,15 @@
 # mcsv-handler-discord
-Minecraft Server Manager at Discord v0.1.3
+Minecraft Server Manager at Discord v0.2.0
+MinecraftサーバをDiscordのBOTを通じて起動・停止・コマンドの送信ができるクライアントアプリケーションです。
 
-## はじめに
-Discord Developer Portalにてアクセストークンの取得が必要です。
+## はじめる前に
+### Discord Developer Portal
+Discord Developer PortalにてBOTの設定とアクセストークンの取得が必要です。
 - [Discord Developer Portal](https://discord.com/developers/applications)
+
+### Privileged Gateway Intents
+サーバで送信されるメッセージを取得するために、`Message Content Intent` 特権を有効にする必要があります。
+アプリケーションの設定 > `BOT` > `Privileged Gateway Intents` から設定して下さい。
 
 ## 使い方
 1. 設定ファイル `config.toml` を作成して、必要な設定を行ってください。
@@ -25,7 +31,7 @@ Discord Developer Portalにてアクセストークンの取得が必要です�
 テンプレート:
 ```toml
 # mcsv-handler-discord 設定
-# v 0.1.3
+# v 0.2.0
 
 [client] # クライアント設定
 
