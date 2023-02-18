@@ -86,8 +86,16 @@ impl EventHandler for Handler {
             return;
         }
 
+        if msg.content.len() <= 1 && !msg.content.starts_with("!") {
+            return;
+        }
+
+        let mut message = msg.content[1..].split(' ');
+        let command = message.next().unwrap();
+        let args: Vec<&str> = message.collect();
+
         // サーバ起動コマンド
-        if msg.content == "!mcstart" {
+        if command == "mcstart" {
             // 標準入力が存在するなら, 既に起動しているのでreturnする
             if let Some(_) = *(self.thread_stdin.lock().await) {
                 self.send("すでに起動しています！").await;
@@ -255,18 +263,22 @@ impl EventHandler for Handler {
                     }
                 });
             }
+            return;
         }
 
         //コマンド入力
-        if msg.content.starts_with("!mcc") {
+        if command == "mcc" {
+            if args.len() == 0 {
+                self.send("引数を入力して下さい！").await;
+                return;
+            }
+
             let stdin = self.thread_stdin.lock().await;
 
             match stdin.as_ref() {
                 Some(mut v) => {
-                    // 引数部分 (5文字目以降) を取り出す
-                    let command = &msg.content[5..];
-
-                    v.write_all(format!("{}\n", command).as_bytes()).unwrap();
+                    v.write_all(format!("{}\n", args.concat()).as_bytes())
+                        .unwrap();
                     self.send("コマンドを送信しました").await;
 
                     let mut inputed = self.command_inputed.lock().await;
@@ -281,7 +293,7 @@ impl EventHandler for Handler {
         }
 
         // サーバ停止コマンド
-        if msg.content == "!mcend" {
+        if command == "mcend" {
             let mut stdin = self.thread_stdin.lock().await;
             let mut inputed = self.command_inputed.lock().await;
             let mut thread_id = self.thread_id.lock().await;
@@ -310,10 +322,12 @@ impl EventHandler for Handler {
         }
 
         // クライアント停止コマンド
-        if msg.content == "!mcsvend" {
+        if command == "mcsvend" {
             self.send("クライアントを終了しました。").await;
             exit(0);
         }
+
+        self.send("存在しないコマンドです。").await;
     }
 
     async fn ready(&self, _: Context, ready: Ready) {
