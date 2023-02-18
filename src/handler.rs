@@ -40,10 +40,10 @@ impl Handler {
         }
     }
 
-    async fn send(&self, message: String) {
+    async fn send(&self, message: impl AsRef<str>) {
         let channel = ChannelId(self.config.permission.channel_id);
 
-        if let Err(e) = channel.say(&self.http, message).await {
+        if let Err(e) = channel.say(&self.http, message.as_ref()).await {
             println!("{}", e);
         }
     }
@@ -62,10 +62,10 @@ impl Handler {
 struct MessageSender;
 
 impl MessageSender {
-    async fn send(message: String, http: &Http, channel: u64) -> Option<Message> {
+    async fn send(message: impl AsRef<str>, http: &Http, channel: u64) -> Option<Message> {
         let channel = ChannelId(channel);
 
-        match channel.say(http, message).await {
+        match channel.say(http, message.as_ref()).await {
             Ok(msg) => Some(msg),
             Err(e) => {
                 println!("{}", e);
@@ -90,7 +90,7 @@ impl EventHandler for Handler {
         if msg.content == "!mcstart" {
             // 標準入力が存在するなら, 既に起動しているのでreturnする
             if let Some(_) = *(self.thread_stdin.lock().await) {
-                self.send("すでに起動しています！".to_string()).await;
+                self.send("すでに起動しています！").await;
                 return;
             }
 
@@ -194,12 +194,12 @@ impl EventHandler for Handler {
                                     println!("サーバが停止しました。");
                                     let mut stdin = stdin.lock().await;
                                     *stdin = None;
-                                    MessageSender::send("終了しました".to_string(), &http, channel)
+                                    MessageSender::send("終了しました", &http, channel)
                                         .await;
                                 }
                                 ServerMessage::Done => {
                                     let invoked_message = MessageSender::send(
-                                        "サーバが起動しました！サーバログをスレッドから確認できます。".to_string(),
+                                        "サーバが起動しました！サーバログをスレッドから確認できます。",
                                         &http,
                                         channel,
                                     )
@@ -267,13 +267,13 @@ impl EventHandler for Handler {
                     let command = &msg.content[5..];
 
                     v.write_all(format!("{}\n", command).as_bytes()).unwrap();
-                    self.send("コマンドを送信しました".to_string()).await;
+                    self.send("コマンドを送信しました").await;
 
                     let mut inputed = self.command_inputed.lock().await;
                     *inputed = true;
                 }
                 None => {
-                    self.send("起動していません！".to_string()).await;
+                    self.send("起動していません！").await;
                 }
             }
 
@@ -289,7 +289,7 @@ impl EventHandler for Handler {
             match stdin.as_ref() {
                 Some(mut v) => {
                     println!("stopping...");
-                    self.send("終了しています……".to_string()).await;
+                    self.send("終了しています……").await;
                     v.write_all(b"stop\n").unwrap();
 
                     ChannelId(thread_id.unwrap())
@@ -302,7 +302,7 @@ impl EventHandler for Handler {
                     *thread_id = None;
                 }
                 None => {
-                    self.send("起動していません！".to_string()).await;
+                    self.send("起動していません！").await;
                 }
             }
 
@@ -311,7 +311,7 @@ impl EventHandler for Handler {
 
         // クライアント停止コマンド
         if msg.content == "!mcsvend" {
-            self.send("クライアントを終了しました。".to_string()).await;
+            self.send("クライアントを終了しました。").await;
             exit(0);
         }
     }
