@@ -1,5 +1,5 @@
 # mcsv-handler-discord
-Minecraft Server Manager at Discord v0.2.0
+Minecraft Server Manager at Discord v0.2.1
 
 MinecraftサーバをDiscordのBOTを通じて起動・停止・コマンドの送信ができるクライアントアプリケーションです。
 
@@ -32,7 +32,7 @@ Discord Developer PortalにてBOTの設定とアクセストークンの取得�
 テンプレート:
 ```toml
 # mcsv-handler-discord 設定
-# v 0.2.0
+# v 0.2.1
 
 [client] # クライアント設定
 
