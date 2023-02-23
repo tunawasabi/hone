@@ -1,14 +1,18 @@
 use std::fs;
 use std::io;
-use std::process::{Child, Command, Stdio};
+use std::process::{Stdio, Child};
 use toml;
 
 use crate::types::Config;
 
+#[cfg(target_os = "windows")]
+mod windows;
+#[cfg(target_os = "windows")]
+pub use self::windows::*;
+
 pub fn mcserver_new(jar_file: &str, work_dir: &str, memory: &str) -> io::Result<Child> {
-    Command::new("cmd")
+    self::command_new("java")
         .current_dir(work_dir)
-        .args(["/C", "java"])
         .arg(format!("-Xmx{}", memory))
         .arg(format!("-Xms{}", memory))
         .arg("-jar")
@@ -18,6 +22,7 @@ pub fn mcserver_new(jar_file: &str, work_dir: &str, memory: &str) -> io::Result<
         .stdout(Stdio::piped())
         .spawn()
 }
+
 
 pub fn read_config() -> Result<Config, String> {
     let config = match fs::read_to_string("config.toml") {
