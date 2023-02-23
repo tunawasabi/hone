@@ -108,8 +108,7 @@ impl EventHandler for Handler {
 
             let config = self.config.clone();
             let (thread_tx, rx) = mpsc::channel::<ServerMessage>();
-            let (tx2, rx2) = mpsc::channel::<ChildStdin>();
-            let thread_tx2 = tx2.clone();
+            let (thread_tx2, rx2) = mpsc::channel::<ChildStdin>();
 
             // Minecraft サーバスレッド
             thread::spawn(move || {
