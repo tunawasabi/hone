@@ -103,3 +103,17 @@ pub fn server_log_sender(
         buf.clear();
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::mcserver_new;
+
+    #[test]
+    fn mcsv_stdio_must_piped() {
+        let mcsv = mcserver_new("dummy", "./", "").unwrap();
+
+        assert!(mcsv.stdout.is_some(), "stdout is not piped");
+        assert!(mcsv.stderr.is_some(), "stderr is not piped");
+        assert!(mcsv.stdin.is_some(), "stdin is not piped");
+    }
+}
