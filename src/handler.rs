@@ -29,6 +29,10 @@ enum ServerMessage {
     Error(String),
 }
 
+// スレッド名の前につける稼働状況
+const RUNNING_INDICATER: &str = "[🏃稼働中]";
+const LOG_INDICATER: &str = "🗒️";
+
 impl Handler {
     pub fn new(config: Config) -> Handler {
         let stdin = Arc::new(Mutex::new(Option::<ChildStdin>::None));
@@ -222,7 +226,8 @@ impl EventHandler for Handler {
                                     let thread = ChannelId(channel)
                                         .create_public_thread(&http, invoked_message, |v| {
                                             v.name(format!(
-                                                "[🏃稼働中] Minecraftサーバログ {}",
+                                                "{} Minecraftサーバログ {}",
+                                                RUNNING_INDICATER,
                                                 chrono::Local::now().format("%Y/%m/%d %H:%M")
                                             ))
                                             .auto_archive_duration(60)
@@ -316,7 +321,7 @@ impl EventHandler for Handler {
 
                         channel
                             .edit_thread(&self.http, |thread| {
-                                thread.name(name.replace("[🏃稼働中]", "🗒️")).archived(true)
+                                thread.name(name.replace(RUNNING_INDICATER, LOG_INDICATER)).archived(true)
                             })
                             .await
                             .ok();
