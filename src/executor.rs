@@ -3,9 +3,11 @@ use std::fs;
 use std::io;
 use std::io::BufRead;
 use std::io::BufReader;
+use std::process::ChildStderr;
 use std::process::ChildStdout;
 use std::process::{Child, Stdio};
 use std::sync::mpsc;
+use std::thread;
 use toml;
 
 use crate::types::Config;
@@ -25,6 +27,7 @@ pub fn mcserver_new(jar_file: &str, work_dir: &str, memory: &str) -> io::Result<
         .arg("nogui")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
         .spawn()
 }
 
@@ -40,43 +43,63 @@ pub fn read_config() -> Result<Config, String> {
     }
 }
 
-pub fn server_log_sender(sender: &mpsc::Sender<ServerMessage>, stdout: ChildStdout) {
+pub fn server_log_sender(
+    sender: &mpsc::Sender<ServerMessage>,
+    stdout: ChildStdout,
+    stderr: ChildStderr,
+) {
     let mut bufread = BufReader::new(stdout);
     let mut buf = String::new();
 
-    loop {
-        if let Ok(lines) = bufread.read_line(&mut buf) {
-            if lines == 0 {
+    // 標準エラー出力を監視するスレッド
+    let err_sender = sender.clone();
+    thread::spawn(move || {
+        let mut bufread = BufReader::new(stderr);
+        let mut buf = String::new();
+
+        while let Ok(v) = bufread.read_line(&mut buf) {
+            if v == 0 {
                 break;
             }
 
-            // JVMからの出力をそのまま出力する。
-            // 改行コードが既に含まれているのでprint!マクロを使う
             print!("[Minecraft] {}", buf);
+            err_sender.send(ServerMessage::Error(buf.clone())).unwrap();
 
-            // サーバの起動が完了したとき
-            if buf.contains("Done") {
-                sender.send(ServerMessage::Done).unwrap();
-            }
+            buf.clear();
+        }
+    });
 
-            // EULAへの同意が必要な時
-            if buf.contains("You need to agree") {
-                sender
+    // 標準出力を監視する
+    while let Ok(lines) = bufread.read_line(&mut buf) {
+        if lines == 0 {
+            break;
+        }
+
+        // JVMからの出力をそのまま出力する。
+        // 改行コードが既に含まれているのでprint!マクロを使う
+        print!("[Minecraft] {}", buf);
+
+        // サーバの起動が完了したとき
+        if buf.contains("Done") {
+            sender.send(ServerMessage::Done).unwrap();
+        }
+
+        // EULAへの同意が必要な時
+        if buf.contains("You need to agree") {
+            sender
                                     .send(ServerMessage::Error(
                                         "サーバを開始するには、EULAに同意する必要があります。eula.txtを編集してください。"
                                             .to_string(),
                                     ))
                                     .unwrap();
-            }
-
-            // Minecraftサーバ終了を検知
-            if buf.contains("All dimensions are saved") {
-                break;
-            }
-
-            sender.send(ServerMessage::Info(buf.clone())).unwrap();
-
-            buf.clear();
         }
+
+        // Minecraftサーバ終了を検知
+        if buf.contains("All dimensions are saved") {
+            break;
+        }
+
+        sender.send(ServerMessage::Info(buf.clone())).unwrap();
+        buf.clear();
     }
 }

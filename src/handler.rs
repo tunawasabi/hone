@@ -140,6 +140,7 @@ impl EventHandler for Handler {
                 crate::executor::server_log_sender(
                     &thread_tx,
                     server_thread.stdout.take().unwrap(), // stdoutは必ず存在するのでunwrapしてもよい
+                    server_thread.stderr.take().unwrap(),
                 );
 
                 executor::close_port(server_config.port);
