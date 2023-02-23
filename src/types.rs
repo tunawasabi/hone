@@ -25,3 +25,10 @@ pub struct Server {
     pub jar_file: String,
     pub memory: String,
 }
+
+pub enum ServerMessage {
+    Done,
+    Exit,
+    Info(String),
+    Error(String),
+}

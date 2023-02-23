@@ -1,5 +1,6 @@
 use crate::executor;
 use crate::types::Config;
+use crate::types::ServerMessage;
 use chrono;
 use serenity::http::Http;
 use serenity::model::channel::Channel;
@@ -7,7 +8,7 @@ use serenity::model::channel::Message;
 use serenity::model::gateway::Ready;
 use serenity::model::prelude::ChannelId;
 use serenity::prelude::*;
-use std::io::{BufRead, BufReader, Write};
+use std::io::Write;
 use std::process::{exit, ChildStdin};
 use std::sync::{mpsc, Arc};
 use std::thread;
@@ -20,13 +21,6 @@ pub struct Handler {
     thread_stdin: ArcMutex<Option<ChildStdin>>,
     command_inputed: ArcMutex<bool>,
     thread_id: ArcMutex<Option<u64>>,
-}
-
-enum ServerMessage {
-    Done,
-    Exit,
-    Info(String),
-    Error(String),
 }
 
 // スレッド名の前につける稼働状況
@@ -122,8 +116,11 @@ impl EventHandler for Handler {
                 let server_config = config.server;
 
                 // Minecraft サーバを起動する
-                let mut server_thread = match executor::mcserver_new(&server_config.jar_file, &server_config.work_dir, &server_config.memory)
-                {
+                let mut server_thread = match executor::mcserver_new(
+                    &server_config.jar_file,
+                    &server_config.work_dir,
+                    &server_config.memory,
+                ) {
                     Ok(child) => child,
                     Err(err) => {
                         thread_tx
@@ -137,47 +134,14 @@ impl EventHandler for Handler {
                 };
 
                 thread_tx2
-                    .send(server_thread.stdin.take().unwrap())
+                    .send(server_thread.stdin.take().unwrap()) // stdinは必ず存在するのでunwrapしてもよい
                     .unwrap();
 
-                let mut bufread = BufReader::new(server_thread.stdout.as_mut().unwrap());
-                // 出力
-                let mut buf = String::new();
-                loop {
-                    if let Ok(lines) = bufread.read_line(&mut buf) {
-                        if lines == 0 {
-                            break;
-                        }
-
-                        // JVMからの出力をそのまま出力する。
-                        // 改行コードが既に含まれているのでprint!マクロを使う
-                        print!("[Minecraft] {}", buf);
-
-                        // サーバの起動が完了したとき
-                        if buf.contains("Done") {
-                            thread_tx.send(ServerMessage::Done).unwrap();
-                        }
-
-                        // EULAへの同意が必要な時
-                        if buf.contains("You need to agree") {
-                            thread_tx
-                                    .send(ServerMessage::Error(
-                                        "サーバを開始するには、EULAに同意する必要があります。eula.txtを編集してください。"
-                                            .to_string(),
-                                    ))
-                                    .unwrap();
-                        }
-
-                        // Minecraftサーバ終了を検知
-                        if buf.contains("All dimensions are saved") {
-                            break;
-                        }
-
-                        thread_tx.send(ServerMessage::Info(buf.clone())).unwrap();
-
-                        buf.clear();
-                    }
-                }
+                // サーバログを表示して、別スレッドに送信する
+                crate::executor::server_log_sender(
+                    &thread_tx,
+                    server_thread.stdout.take().unwrap(), // stdoutは必ず存在するのでunwrapしてもよい
+                );
 
                 executor::close_port(server_config.port);
                 thread_tx.send(ServerMessage::Exit).unwrap();
@@ -287,7 +251,7 @@ impl EventHandler for Handler {
 
             match stdin.as_ref() {
                 Some(mut v) => {
-                    v.write_all(format!("{}\n", args.concat()).as_bytes())
+                    v.write_all(format!("{}\n", args.join(" ")).as_bytes())
                         .unwrap();
                     self.send("コマンドを送信しました").await;
 
@@ -321,7 +285,9 @@ impl EventHandler for Handler {
 
                         channel
                             .edit_thread(&self.http, |thread| {
-                                thread.name(name.replace(RUNNING_INDICATER, LOG_INDICATER)).archived(true)
+                                thread
+                                    .name(name.replace(RUNNING_INDICATER, LOG_INDICATER))
+                                    .archived(true)
                             })
                             .await
                             .ok();
