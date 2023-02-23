@@ -1,14 +1,18 @@
 use std::fs;
 use std::io;
-use std::process::{Child, Command, Stdio};
+use std::process::{Stdio, Child};
 use toml;
 
 use crate::types::Config;
 
+#[cfg(target_os = "windows")]
+mod windows;
+#[cfg(target_os = "windows")]
+pub use self::windows::*;
+
 pub fn mcserver_new(jar_file: &str, work_dir: &str, memory: &str) -> io::Result<Child> {
-    Command::new("cmd")
+    self::command_new("java")
         .current_dir(work_dir)
-        .args(["/C", "java"])
         .arg(format!("-Xmx{}", memory))
         .arg(format!("-Xms{}", memory))
         .arg("-jar")
@@ -19,69 +23,6 @@ pub fn mcserver_new(jar_file: &str, work_dir: &str, memory: &str) -> io::Result<
         .spawn()
 }
 
-mod util {
-    pub fn port_rule_in_name(port: u16) -> String {
-        format!("name=mcsv-handler-discord in {}", port)
-    }
-
-    pub fn port_rule_out_name(port: u16) -> String {
-        format!("name=mcsv-handler-discord out {}", port)
-    }
-}
-
-pub fn open_port(port: u16) {
-    println!("ポートの開放");
-
-    let localport_arg = format!("localport={}", port);
-
-    Command::new("cmd")
-        .args(["/C", "netsh"])
-        .arg("advfirewall")
-        .arg("firewall")
-        .args(["add", "rule"])
-        .arg(util::port_rule_in_name(port))
-        .arg("dir=in")
-        .arg("action=allow")
-        .arg("protocol=TCP")
-        .arg(localport_arg.clone())
-        .status()
-        .ok();
-
-    Command::new("cmd")
-        .args(["/C", "netsh"])
-        .arg("advfirewall")
-        .arg("firewall")
-        .args(["add", "rule"])
-        .arg(util::port_rule_out_name(port))
-        .arg("dir=out")
-        .arg("action=allow")
-        .arg("protocol=TCP")
-        .arg(localport_arg)
-        .status()
-        .ok();
-}
-
-pub fn close_port(port: u16) {
-    println!("ポートの戸締り");
-
-    Command::new("cmd")
-        .args(["/C", "netsh"])
-        .arg("advfirewall")
-        .arg("firewall")
-        .args(["delete", "rule"])
-        .arg(util::port_rule_in_name(port))
-        .status()
-        .ok();
-
-    Command::new("cmd")
-        .args(["/C", "netsh"])
-        .arg("advfirewall")
-        .arg("firewall")
-        .args(["delete", "rule"])
-        .arg(util::port_rule_out_name(port))
-        .status()
-        .ok();
-}
 
 pub fn read_config() -> Result<Config, String> {
     let config = match fs::read_to_string("config.toml") {
