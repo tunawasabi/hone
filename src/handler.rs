@@ -1,3 +1,4 @@
+use crate::executor;
 use crate::types::Config;
 use chrono;
 use serenity::http::Http;
@@ -105,6 +106,8 @@ impl EventHandler for Handler {
 
             self.send("開始しています……".to_string()).await;
 
+            executor::open_port();
+
             let memory = self.config.server.memory.clone();
             let jar_file = self.config.server.jar_file.clone();
             let work_dir = self.config.server.work_dir.clone();
@@ -115,19 +118,19 @@ impl EventHandler for Handler {
             // Minecraft サーバスレッド
             thread::spawn(move || {
                 // Minecraft サーバを起動する
-                let mut server_thread =
-                    match crate::executor::mcserver_new(&jar_file, &work_dir, &memory) {
-                        Ok(child) => child,
-                        Err(err) => {
-                            thread_tx
-                                .send(ServerMessage::Error(format!(
-                                    "Minecraftサーバのプロセスを起動できませんでした: {}",
-                                    err
-                                )))
-                                .unwrap();
-                            return;
-                        }
-                    };
+                let mut server_thread = match executor::mcserver_new(&jar_file, &work_dir, &memory)
+                {
+                    Ok(child) => child,
+                    Err(err) => {
+                        thread_tx
+                            .send(ServerMessage::Error(format!(
+                                "Minecraftサーバのプロセスを起動できませんでした: {}",
+                                err
+                            )))
+                            .unwrap();
+                        return;
+                    }
+                };
 
                 thread_tx2
                     .send(server_thread.stdin.take().unwrap())
@@ -172,6 +175,7 @@ impl EventHandler for Handler {
                     }
                 }
 
+                executor::close_port();
                 thread_tx.send(ServerMessage::Exit).unwrap();
             });
 

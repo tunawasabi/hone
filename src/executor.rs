@@ -1,5 +1,6 @@
 use std::fs;
 use std::io;
+use std::process::Output;
 use std::process::{Child, Command, Stdio};
 use toml;
 
@@ -17,6 +18,58 @@ pub fn mcserver_new(jar_file: &str, work_dir: &str, memory: &str) -> io::Result<
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .spawn()
+}
+
+pub fn open_port() {
+    println!("ポートの開放");
+
+    Command::new("cmd")
+        .args(["/C", "netsh"])
+        .arg("advfirewall")
+        .arg("firewall")
+        .args(["add", "rule"])
+        .arg("name=mcsv-handler-discord in 25565")
+        .arg("dir=in")
+        .arg("action=allow")
+        .arg("protocol=TCP")
+        .arg("localport=25565")
+        .status()
+        .ok();
+
+    Command::new("cmd")
+        .args(["/C", "netsh"])
+        .arg("advfirewall")
+        .arg("firewall")
+        .args(["add", "rule"])
+        .arg("name=mcsv-handler-discord out 25565")
+        .arg("dir=out")
+        .arg("action=allow")
+        .arg("protocol=TCP")
+        .arg("localport=25565")
+        .status()
+        .ok();
+}
+
+pub fn close_port() {
+    println!("ポートの戸締り");
+
+    Command::new("cmd")
+        .args(["/C", "netsh"])
+        .arg("advfirewall")
+        .arg("firewall")
+        .args(["delete", "rule"])
+        .arg("name=mcsv-handler-discord in 25565")
+        .status()
+        .ok();
+
+    Command::new("cmd")
+        .args(["/C", "netsh"])
+        .arg("advfirewall")
+        .arg("firewall")
+        .args(["delete", "rule"])
+        .arg("name=mcsv-handler-discord out 25565")
+        .status()
+        .ok();
 }
 
 pub fn read_config() -> Result<Config, String> {
