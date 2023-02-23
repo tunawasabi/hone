@@ -1,6 +1,5 @@
 use std::fs;
 use std::io;
-use std::process::Output;
 use std::process::{Child, Command, Stdio};
 use toml;
 
@@ -20,19 +19,31 @@ pub fn mcserver_new(jar_file: &str, work_dir: &str, memory: &str) -> io::Result<
         .spawn()
 }
 
-pub fn open_port() {
+mod util {
+    pub fn port_rule_in_name(port: u16) -> String {
+        format!("name=mcsv-handler-discord in {}", port)
+    }
+
+    pub fn port_rule_out_name(port: u16) -> String {
+        format!("name=mcsv-handler-discord out {}", port)
+    }
+}
+
+pub fn open_port(port: u16) {
     println!("ポートの開放");
+
+    let localport_arg = format!("localport={}", port);
 
     Command::new("cmd")
         .args(["/C", "netsh"])
         .arg("advfirewall")
         .arg("firewall")
         .args(["add", "rule"])
-        .arg("name=mcsv-handler-discord in 25565")
+        .arg(util::port_rule_in_name(port))
         .arg("dir=in")
         .arg("action=allow")
         .arg("protocol=TCP")
-        .arg("localport=25565")
+        .arg(localport_arg.clone())
         .status()
         .ok();
 
@@ -41,16 +52,16 @@ pub fn open_port() {
         .arg("advfirewall")
         .arg("firewall")
         .args(["add", "rule"])
-        .arg("name=mcsv-handler-discord out 25565")
+        .arg(util::port_rule_out_name(port))
         .arg("dir=out")
         .arg("action=allow")
         .arg("protocol=TCP")
-        .arg("localport=25565")
+        .arg(localport_arg)
         .status()
         .ok();
 }
 
-pub fn close_port() {
+pub fn close_port(port: u16) {
     println!("ポートの戸締り");
 
     Command::new("cmd")
@@ -58,7 +69,7 @@ pub fn close_port() {
         .arg("advfirewall")
         .arg("firewall")
         .args(["delete", "rule"])
-        .arg("name=mcsv-handler-discord in 25565")
+        .arg(util::port_rule_in_name(port))
         .status()
         .ok();
 
@@ -67,7 +78,7 @@ pub fn close_port() {
         .arg("advfirewall")
         .arg("firewall")
         .args(["delete", "rule"])
-        .arg("name=mcsv-handler-discord out 25565")
+        .arg(util::port_rule_out_name(port))
         .status()
         .ok();
 }

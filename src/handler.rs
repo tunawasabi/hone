@@ -106,19 +106,19 @@ impl EventHandler for Handler {
 
             self.send("開始しています……".to_string()).await;
 
-            executor::open_port();
+            executor::open_port(self.config.server.port);
 
-            let memory = self.config.server.memory.clone();
-            let jar_file = self.config.server.jar_file.clone();
-            let work_dir = self.config.server.work_dir.clone();
+            let config = self.config.clone();
             let (thread_tx, rx) = mpsc::channel::<ServerMessage>();
             let (tx2, rx2) = mpsc::channel::<ChildStdin>();
             let thread_tx2 = tx2.clone();
 
             // Minecraft サーバスレッド
             thread::spawn(move || {
+                let server_config = config.server;
+
                 // Minecraft サーバを起動する
-                let mut server_thread = match executor::mcserver_new(&jar_file, &work_dir, &memory)
+                let mut server_thread = match executor::mcserver_new(&server_config.jar_file, &server_config.work_dir, &server_config.memory)
                 {
                     Ok(child) => child,
                     Err(err) => {
@@ -175,7 +175,7 @@ impl EventHandler for Handler {
                     }
                 }
 
-                executor::close_port();
+                executor::close_port(server_config.port);
                 thread_tx.send(ServerMessage::Exit).unwrap();
             });
 
