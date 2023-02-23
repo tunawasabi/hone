@@ -1,6 +1,7 @@
 use crate::types::Config;
 use chrono;
 use serenity::http::Http;
+use serenity::model::channel::Channel;
 use serenity::model::channel::Message;
 use serenity::model::gateway::Ready;
 use serenity::model::prelude::ChannelId;
@@ -209,7 +210,7 @@ impl EventHandler for Handler {
                                     let thread = ChannelId(channel)
                                         .create_public_thread(&http, invoked_message, |v| {
                                             v.name(format!(
-                                                "Minecraftサーバログ {}",
+                                                "[🏃稼働中] Minecraftサーバログ {}",
                                                 chrono::Local::now().format("%Y/%m/%d %H:%M")
                                             ))
                                             .auto_archive_duration(60)
@@ -292,10 +293,18 @@ impl EventHandler for Handler {
                     self.send("終了しています……").await;
                     v.write_all(b"stop\n").unwrap();
 
-                    ChannelId(thread_id.unwrap())
-                        .edit_thread(&self.http, |thread| thread.archived(true))
-                        .await
-                        .unwrap();
+                    if let Ok(Channel::Guild(channel)) =
+                        &self.http.get_channel(thread_id.unwrap()).await
+                    {
+                        let name = channel.name();
+
+                        channel
+                            .edit_thread(&self.http, |thread| {
+                                thread.name(name.replace("[🏃稼働中]", "🗒️")).archived(true)
+                            })
+                            .await
+                            .ok();
+                    }
 
                     *stdin = None;
                     *inputed = false;
