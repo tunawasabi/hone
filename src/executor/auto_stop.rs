@@ -1,9 +1,13 @@
 use std::{sync::mpsc, thread, time};
 
-pub fn auto_stop_inspect(stdin: mpsc::Sender<String>) -> mpsc::Sender<i32> {
+pub fn auto_stop_inspect(stdin: mpsc::Sender<String>, is_enabled: bool) -> mpsc::Sender<i32> {
     let (tx, rx) = mpsc::channel();
 
     thread::spawn(move || {
+        if !is_enabled {
+            return;
+        }
+
         // まだサーバが起動完了していな時に
         // 初期人数を-1とする
         let mut players = -1i32;
