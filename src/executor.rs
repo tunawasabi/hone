@@ -1,3 +1,4 @@
+use crate::types::Config;
 use crate::types::ServerMessage;
 use std::fs;
 use std::io;
@@ -8,10 +9,7 @@ use std::process::ChildStdout;
 use std::process::{Child, Stdio};
 use std::sync::mpsc;
 use std::thread;
-use std::time;
 use toml;
-
-use crate::types::Config;
 
 pub mod mcsv;
 
@@ -19,6 +17,9 @@ pub mod mcsv;
 mod windows;
 #[cfg(target_os = "windows")]
 pub use self::windows::*;
+
+mod auto_stop;
+pub use auto_stop::*;
 
 pub fn mcserver_new(jar_file: &str, work_dir: &str, memory: &str) -> io::Result<Child> {
     self::command_new("java")
@@ -66,7 +67,7 @@ pub fn server_log_sender(
             }
 
             print!("[Minecraft] {}", buf);
-            err_sender.send(ServerMessage::Error(buf.clone())).unwrap();
+            err_sender.send(ServerMessage::Error(buf.clone())).ok();
 
             buf.clear();
         }
@@ -84,7 +85,7 @@ pub fn server_log_sender(
 
         // サーバの起動が完了したとき
         if buf.contains("Done") {
-            sender.send(ServerMessage::Done).unwrap();
+            sender.send(ServerMessage::Done).ok();
         }
 
         // EULAへの同意が必要な時
@@ -94,7 +95,7 @@ pub fn server_log_sender(
                                         "サーバを開始するには、EULAに同意する必要があります。eula.txtを編集してください。"
                                             .to_string(),
                                     ))
-                                    .unwrap();
+                                    .ok();
         }
 
         // Minecraftサーバ終了を検知
@@ -105,38 +106,6 @@ pub fn server_log_sender(
         sender.send(ServerMessage::Info(buf.clone())).unwrap();
         buf.clear();
     }
-}
-
-pub fn auto_stop_inspect(stdin: mpsc::Sender<String>) -> mpsc::Sender<i32> {
-    let (tx, rx) = mpsc::channel();
-
-    thread::spawn(move || {
-        let mut players = 0i32;
-
-        loop {
-            match rx.recv_timeout(time::Duration::from_secs(120)) {
-                Ok(v) => {
-                    players += v;
-                    println!("There is/are {} players", players)
-                }
-                Err(err) => match err {
-                    mpsc::RecvTimeoutError::Timeout => {
-                        if players == 0 {
-                            println!("自動終了します……");
-                            stdin.send("stop\n".to_string()).ok();
-                            break;
-                        }
-                    }
-                    mpsc::RecvTimeoutError::Disconnected => {
-                        println!("auto_stop_inspect_sender dropped");
-                        break;
-                    }
-                },
-            }
-        }
-    });
-
-    tx
 }
 
 #[cfg(test)]
