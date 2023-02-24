@@ -153,7 +153,8 @@ impl EventHandler for Handler {
             *stdin = Some(command_sender.clone());
 
             // 自動停止システムを起動
-            let tx3 = executor::auto_stop_inspect(command_sender, self.config.server.auto_stop);
+            let tx3 =
+                executor::auto_stop_inspect(command_sender, 120, self.config.server.auto_stop);
 
             let http = Arc::clone(&self.http);
             let channel = self.config.permission.channel_id;
