@@ -114,7 +114,7 @@ pub fn auto_stop_inspect(stdin: mpsc::Sender<String>) -> mpsc::Sender<i32> {
         let mut players = 0i32;
 
         loop {
-            match rx.recv_timeout(time::Duration::from_secs(30)) {
+            match rx.recv_timeout(time::Duration::from_secs(120)) {
                 Ok(v) => {
                     players += v;
                     println!("There is/are {} players", players)
