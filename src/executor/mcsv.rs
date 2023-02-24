@@ -14,7 +14,7 @@ impl StdinSender {
 
         thread::spawn(move || {
             for v in receiver {
-                if let Err(_) = self.stdin.write_all(v.as_bytes()) {
+                if let Err(_) = self.stdin.write_all(format!("{}\n", v).as_bytes()) {
                     break;
                 };
             }

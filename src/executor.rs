@@ -107,20 +107,36 @@ pub fn server_log_sender(
     }
 }
 
-pub fn auto_stop_inspect(stdin: mpsc::Sender<String>, recv: mpsc::Receiver<()>) {
-    thread::spawn(move || loop {
-        match recv.recv_timeout(time::Duration::from_secs(30)) {
-            Ok(_) => continue,
-            Err(err) => match err {
-                mpsc::RecvTimeoutError::Timeout => {
-                    println!("自動終了します……");
-                    stdin.send("stop".to_string()).ok();
-                    break;
+pub fn auto_stop_inspect(stdin: mpsc::Sender<String>) -> mpsc::Sender<i32> {
+    let (tx, rx) = mpsc::channel();
+
+    thread::spawn(move || {
+        let mut players = 0i32;
+
+        loop {
+            match rx.recv_timeout(time::Duration::from_secs(30)) {
+                Ok(v) => {
+                    players += v;
+                    println!("There is/are {} players", players)
                 }
-                _ => break,
-            },
+                Err(err) => match err {
+                    mpsc::RecvTimeoutError::Timeout => {
+                        if players == 0 {
+                            println!("自動終了します……");
+                            stdin.send("stop\n".to_string()).ok();
+                            break;
+                        }
+                    }
+                    mpsc::RecvTimeoutError::Disconnected => {
+                        println!("auto_stop_inspect_sender dropped");
+                        break;
+                    }
+                },
+            }
         }
     });
+
+    tx
 }
 
 #[cfg(test)]
