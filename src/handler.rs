@@ -8,7 +8,6 @@ use serenity::model::channel::Message;
 use serenity::model::gateway::Ready;
 use serenity::model::prelude::ChannelId;
 use serenity::prelude::*;
-use std::io::Write;
 use std::process::{exit, ChildStdin};
 use std::sync::{mpsc, Arc};
 use std::thread;
@@ -18,7 +17,7 @@ type ArcMutex<T> = Arc<Mutex<T>>;
 pub struct Handler {
     config: Config,
     http: Arc<Http>,
-    thread_stdin: ArcMutex<Option<ChildStdin>>,
+    thread_stdin: ArcMutex<Option<mpsc::Sender<String>>>,
     command_inputed: ArcMutex<bool>,
     thread_id: ArcMutex<Option<u64>>,
 }
@@ -29,7 +28,7 @@ const LOG_INDICATER: &str = "🗒️";
 
 impl Handler {
     pub fn new(config: Config) -> Handler {
-        let stdin = Arc::new(Mutex::new(Option::<ChildStdin>::None));
+        let stdin = Arc::new(Mutex::new(None));
         let http = Arc::new(Http::new(&config.client.secret));
         Handler {
             config,
@@ -40,7 +39,7 @@ impl Handler {
         }
     }
 
-    async fn send(&self, message: impl AsRef<str>) {
+    async fn send_message(&self, message: impl AsRef<str>) {
         let channel = ChannelId(self.config.permission.channel_id);
 
         if let Err(e) = channel.say(&self.http, message.as_ref()).await {
@@ -97,11 +96,11 @@ impl EventHandler for Handler {
         if command == "mcstart" {
             // 標準入力が存在するなら, 既に起動しているのでreturnする
             if self.is_server_running().await {
-                self.send("すでに起動しています！").await;
+                self.send_message("すでに起動しています！").await;
                 return;
             }
 
-            self.send("開始しています……".to_string()).await;
+            self.send_message("開始しています……".to_string()).await;
 
             executor::open_port(self.config.server.port);
 
@@ -150,10 +149,10 @@ impl EventHandler for Handler {
 
             // Minecraftサーバへの標準入力 (stdin) を取得する
             // stdinを取得するまで次に進まない
+            let listner = executor::mcsv::StdinSender::new(rx2.recv().unwrap());
+            let command_sender = listner.listen();
             let mut stdin = self.thread_stdin.lock().await;
-            *stdin = Some(rx2.recv().unwrap());
-            //let listner = executor::mcsv::StdinSender::new(rx2.recv().unwrap());
-            // let command_sender = listner.listen();
+            *stdin = Some(command_sender);
 
             //executor::auto_stop_inspect(command_sender, rx3);
 
@@ -253,24 +252,24 @@ impl EventHandler for Handler {
         //コマンド入力
         else if command == "mcc" {
             if args.len() == 0 {
-                self.send("引数を入力して下さい！").await;
+                self.send_message("引数を入力して下さい！").await;
                 return;
             }
 
-            let stdin = self.thread_stdin.lock().await;
+            let mut stdin = self.thread_stdin.lock().await;
+            if stdin.is_some() {
+                stdin
+                    .as_mut()
+                    .unwrap()
+                    .send(format!("{}\n", args.join(" ")))
+                    .unwrap();
 
-            match stdin.as_ref() {
-                Some(mut v) => {
-                    v.write_all(format!("{}\n", args.join(" ")).as_bytes())
-                        .unwrap();
-                    self.send("コマンドを送信しました").await;
+                self.send_message("コマンドを送信しました").await;
 
-                    let mut inputed = self.command_inputed.lock().await;
-                    *inputed = true;
-                }
-                None => {
-                    self.send("起動していません！").await;
-                }
+                let mut inputed = self.command_inputed.lock().await;
+                *inputed = true;
+            } else {
+                self.send_message("起動していません！").await;
             }
         }
         // サーバ停止コマンド
@@ -279,42 +278,40 @@ impl EventHandler for Handler {
             let mut inputed = self.command_inputed.lock().await;
             let mut thread_id = self.thread_id.lock().await;
 
-            match stdin.as_ref() {
-                Some(mut v) => {
-                    println!("stopping...");
-                    self.send("終了しています……").await;
-                    v.write_all(b"stop\n").unwrap();
+            if stdin.is_some() {
+                stdin.as_mut().unwrap().send("stop".to_string()).unwrap();
 
-                    if let Ok(Channel::Guild(channel)) =
-                        &self.http.get_channel(thread_id.unwrap()).await
-                    {
-                        let name = channel.name();
+                println!("stopping...");
+                self.send_message("終了しています……").await;
 
-                        channel
-                            .edit_thread(&self.http, |thread| {
-                                thread
-                                    .name(name.replace(RUNNING_INDICATER, LOG_INDICATER))
-                                    .archived(true)
-                            })
-                            .await
-                            .ok();
-                    }
+                if let Ok(Channel::Guild(channel)) =
+                    &self.http.get_channel(thread_id.unwrap()).await
+                {
+                    let name = channel.name();
 
-                    *stdin = None;
-                    *inputed = false;
-                    *thread_id = None;
+                    channel
+                        .edit_thread(&self.http, |thread| {
+                            thread
+                                .name(name.replace(RUNNING_INDICATER, LOG_INDICATER))
+                                .archived(true)
+                        })
+                        .await
+                        .ok();
                 }
-                None => {
-                    self.send("起動していません！").await;
-                }
+
+                *stdin = None;
+                *inputed = false;
+                *thread_id = None;
+            } else {
+                self.send_message("起動していません！").await;
             }
         }
         // クライアント停止コマンド
         else if command == "mcsvend" {
-            self.send("クライアントを終了しました。").await;
+            self.send_message("クライアントを終了しました。").await;
             exit(0);
         } else {
-            self.send("存在しないコマンドです。").await;
+            self.send_message("存在しないコマンドです。").await;
         }
     }
 

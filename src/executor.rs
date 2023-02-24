@@ -8,9 +8,12 @@ use std::process::ChildStdout;
 use std::process::{Child, Stdio};
 use std::sync::mpsc;
 use std::thread;
+use std::time;
 use toml;
 
 use crate::types::Config;
+
+pub mod mcsv;
 
 #[cfg(target_os = "windows")]
 mod windows;
@@ -102,6 +105,22 @@ pub fn server_log_sender(
         sender.send(ServerMessage::Info(buf.clone())).unwrap();
         buf.clear();
     }
+}
+
+pub fn auto_stop_inspect(stdin: mpsc::Sender<String>, recv: mpsc::Receiver<()>) {
+    thread::spawn(move || loop {
+        match recv.recv_timeout(time::Duration::from_secs(30)) {
+            Ok(_) => continue,
+            Err(err) => match err {
+                mpsc::RecvTimeoutError::Timeout => {
+                    println!("自動終了します……");
+                    stdin.send("stop".to_string()).ok();
+                    break;
+                }
+                _ => break,
+            },
+        }
+    });
 }
 
 #[cfg(test)]
