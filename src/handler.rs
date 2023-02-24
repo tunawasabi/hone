@@ -48,6 +48,10 @@ impl Handler {
         }
     }
 
+    async fn is_server_running(&self) -> bool {
+        self.thread_stdin.lock().await.is_some()
+    }
+
     #[inline]
     fn is_allowed_user(&self, id: u64) -> bool {
         self.config.permission.user_id.contains(&id)
@@ -97,7 +101,7 @@ impl EventHandler for Handler {
         // サーバ起動コマンド
         if command == "mcstart" {
             // 標準入力が存在するなら, 既に起動しているのでreturnする
-            if let Some(_) = *(self.thread_stdin.lock().await) {
+            if self.is_server_running().await {
                 self.send("すでに起動しています！").await;
                 return;
             }
@@ -147,15 +151,22 @@ impl EventHandler for Handler {
                 thread_tx.send(ServerMessage::Exit).unwrap();
             });
 
+            //let (tx3, rx3) = mpsc::channel::<()>();
+
             // Minecraftサーバへの標準入力 (stdin) を取得する
             // stdinを取得するまで次に進まない
             let mut stdin = self.thread_stdin.lock().await;
             *stdin = Some(rx2.recv().unwrap());
+            //let listner = executor::mcsv::StdinSender::new(rx2.recv().unwrap());
+            // let command_sender = listner.listen();
+
+            //executor::auto_stop_inspect(command_sender, rx3);
 
             {
                 let http = Arc::clone(&self.http);
                 let channel = self.config.permission.channel_id;
                 let stdin = Arc::clone(&self.thread_stdin);
+
                 let inputed = Arc::clone(&self.command_inputed);
                 let thread_id = Arc::clone(&self.thread_id);
 
@@ -165,20 +176,20 @@ impl EventHandler for Handler {
                 thread::spawn(move || {
                     for v in rx {
                         let http = Arc::clone(&http);
-                        let stdin = Arc::clone(&stdin);
                         let inputed = Arc::clone(&inputed);
                         let thread_id = Arc::clone(&thread_id);
+                        //let tx3 = tx3.clone();
 
                         tokio_handle.spawn(async move {
                             match v {
                                 ServerMessage::Exit => {
                                     println!("サーバが停止しました。");
-                                    let mut stdin = stdin.lock().await;
-                                    *stdin = None;
                                     MessageSender::send("終了しました", &http, channel)
                                         .await;
                                 }
                                 ServerMessage::Done => {
+                                    //tx3.send(()).ok();
+
                                     let invoked_message = MessageSender::send(
                                         "サーバが起動しました！サーバログをスレッドから確認できます。",
                                         &http,
@@ -203,6 +214,11 @@ impl EventHandler for Handler {
                                     *thread_id = Some(thread.id.0);
                                 }
                                 ServerMessage::Info(message) => {
+                                    // プレイヤーが参加したことを送信
+                                    //if message.contains("joined") {
+                                    //    tx3.send(()).ok();
+                                    //}
+
                                     // ユーザからコマンドの入力があった時のみ返信する
                                     let mut inputed = inputed.lock().await;
                                     if *inputed {
@@ -229,12 +245,13 @@ impl EventHandler for Handler {
                                         channel,
                                     )
                                     .await;
-                                    let mut stdin = stdin.lock().await;
-                                    *stdin = None;
                                 }
                             }
+
                         });
                     }
+                    let mut stdin = stdin.blocking_lock();
+                    *stdin = None;
                 });
             }
             return;
