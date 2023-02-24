@@ -229,9 +229,7 @@ impl EventHandler for Handler {
                             ServerMessage::Info(message) => {
                                 if message.contains("joined the game") {
                                     tx3.send(1).ok();
-                                }
-
-                                if message.contains("left the game") {
+                                } else if message.contains("left the game") {
                                     tx3.send(-1).ok();
                                 }
 
