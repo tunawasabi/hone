@@ -82,15 +82,10 @@ impl MessageSender {
 #[serenity::async_trait]
 impl EventHandler for Handler {
     async fn message(&self, _: Context, msg: Message) {
-        if !self.is_allowed_user(*msg.author.id.as_u64()) {
-            return;
-        }
-
-        if !self.is_allowed_channel(*msg.channel_id.as_u64()) {
-            return;
-        }
-
-        if msg.content.len() <= 1 && !msg.content.starts_with("!") {
+        if !self.is_allowed_user(*msg.author.id.as_u64())
+            || !self.is_allowed_channel(*msg.channel_id.as_u64())
+            || (msg.content.len() <= 1 && !msg.content.starts_with("!"))
+        {
             return;
         }
 
@@ -254,11 +249,9 @@ impl EventHandler for Handler {
                     *stdin = None;
                 });
             }
-            return;
         }
-
         //コマンド入力
-        if command == "mcc" {
+        else if command == "mcc" {
             if args.len() == 0 {
                 self.send("引数を入力して下さい！").await;
                 return;
@@ -279,12 +272,9 @@ impl EventHandler for Handler {
                     self.send("起動していません！").await;
                 }
             }
-
-            return;
         }
-
         // サーバ停止コマンド
-        if command == "mcend" {
+        else if command == "mcend" {
             let mut stdin = self.thread_stdin.lock().await;
             let mut inputed = self.command_inputed.lock().await;
             let mut thread_id = self.thread_id.lock().await;
@@ -318,17 +308,14 @@ impl EventHandler for Handler {
                     self.send("起動していません！").await;
                 }
             }
-
-            return;
         }
-
         // クライアント停止コマンド
-        if command == "mcsvend" {
+        else if command == "mcsvend" {
             self.send("クライアントを終了しました。").await;
             exit(0);
+        } else {
+            self.send("存在しないコマンドです。").await;
         }
-
-        self.send("存在しないコマンドです。").await;
     }
 
     async fn ready(&self, _: Context, ready: Ready) {
