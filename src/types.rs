@@ -23,6 +23,7 @@ pub struct Server {
     pub work_dir: String,
     pub port: u16,
     pub jar_file: String,
+    pub auto_stop: bool,
     pub memory: String,
 }
 

@@ -1,3 +1,4 @@
+use crate::types::Config;
 use crate::types::ServerMessage;
 use std::fs;
 use std::io;
@@ -10,12 +11,15 @@ use std::sync::mpsc;
 use std::thread;
 use toml;
 
-use crate::types::Config;
+pub mod mcsv;
 
 #[cfg(target_os = "windows")]
 mod windows;
 #[cfg(target_os = "windows")]
 pub use self::windows::*;
+
+mod auto_stop;
+pub use auto_stop::*;
 
 pub fn mcserver_new(jar_file: &str, work_dir: &str, memory: &str) -> io::Result<Child> {
     self::command_new("java")
@@ -63,7 +67,7 @@ pub fn server_log_sender(
             }
 
             print!("[Minecraft] {}", buf);
-            err_sender.send(ServerMessage::Error(buf.clone())).unwrap();
+            err_sender.send(ServerMessage::Error(buf.clone())).ok();
 
             buf.clear();
         }
@@ -81,7 +85,7 @@ pub fn server_log_sender(
 
         // サーバの起動が完了したとき
         if buf.contains("Done") {
-            sender.send(ServerMessage::Done).unwrap();
+            sender.send(ServerMessage::Done).ok();
         }
 
         // EULAへの同意が必要な時
@@ -91,7 +95,7 @@ pub fn server_log_sender(
                                         "サーバを開始するには、EULAに同意する必要があります。eula.txtを編集してください。"
                                             .to_string(),
                                     ))
-                                    .unwrap();
+                                    .ok();
         }
 
         // Minecraftサーバ終了を検知
