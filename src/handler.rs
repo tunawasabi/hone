@@ -227,11 +227,11 @@ impl EventHandler for Handler {
                                 *thread_id = Some(thread.id.0);
                             }
                             ServerMessage::Info(message) => {
-                                if message.ends_with("joined the game.") {
+                                if message.contains("joined the game") {
                                     tx3.send(1).ok();
                                 }
 
-                                if message.ends_with("left the game.") {
+                                if message.contains("left the game") {
                                     tx3.send(-1).ok();
                                 }
 
