@@ -102,6 +102,7 @@ impl EventHandler for Handler {
 
             self.send_message("開始しています……".to_string()).await;
 
+            #[cfg(target_os = "windows")]
             executor::open_port(self.config.server.port);
 
             let config = self.config.clone();
@@ -141,7 +142,9 @@ impl EventHandler for Handler {
                     server_thread.stderr.take().unwrap(),
                 );
 
+                #[cfg(target_os = "windows")]
                 executor::close_port(server_config.port);
+
                 thread_tx.send(ServerMessage::Exit).unwrap();
             });
 

@@ -18,6 +18,11 @@ mod windows;
 #[cfg(target_os = "windows")]
 pub use self::windows::*;
 
+#[cfg(not(target_os = "windows"))]
+mod not_windows;
+#[cfg(not(target_os = "windows"))]
+pub use self::not_windows::*;
+
 mod auto_stop;
 pub use auto_stop::*;
 
