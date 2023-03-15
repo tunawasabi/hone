@@ -317,6 +317,7 @@ impl EventHandler for Handler {
     }
 
     async fn ready(&self, _: Context, ready: Ready) {
-        println!("Discordに接続しました: {}", ready.user.name);
+        println!("Discordに接続しました。");
+        println!("ユーザ名: {}", ready.user.tag());
     }
 }
