@@ -7,6 +7,7 @@ use serenity::model::channel::Channel;
 use serenity::model::channel::Message;
 use serenity::model::gateway::Ready;
 use serenity::model::prelude::ChannelId;
+use serenity::model::prelude::ChannelType;
 use serenity::prelude::*;
 use std::process::{exit, ChildStdin};
 use std::sync::{mpsc, Arc};
@@ -316,8 +317,39 @@ impl EventHandler for Handler {
         }
     }
 
-    async fn ready(&self, _: Context, ready: Ready) {
+    async fn ready(&self, ctx: Context, ready: Ready) {
+        let Ok(channel) = ctx
+            .http
+            .get_channel(self.config.permission.channel_id)
+            .await
+        else {
+            println!("設定で指定されているチャンネルが見つかりません。permisson.channel_id の値を修正してください。");
+            println!("* BOTがチャンネルのあるサーバに参加しているか確認してください。");
+            exit(-1);
+        };
+
+        let Some(channel) = channel.guild() else {
+            println!("プライベートチャンネル、チャンネルカテゴリーを管理用チャンネルに指定することはできません。permisson.channel_id の値を修正してください。");
+            exit(-1);
+        };
+
+        // テキストチャンネルであることを確認
+        if ChannelType::Text != channel.kind {
+            println!("ボイスチャンネルやスレッド、フォーラムなどを管理用チャンネルに指定することはできません。テキストチャンネルを指定してください。");
+            exit(-1);
+        }
+
         println!("Discordに接続しました。");
-        println!("ユーザ名: {}", ready.user.tag());
+        println!("BOTの名前: {}", ready.user.tag());
+        println!(
+            "管理チャンネル: {} (in {})",
+            channel.name(),
+            channel
+                .guild_id
+                .to_partial_guild(ctx.http)
+                .await
+                .unwrap()
+                .name
+        );
     }
 }
