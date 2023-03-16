@@ -1,4 +1,4 @@
-use crate::types::Config;
+use crate::config::Config;
 use crate::types::ServerMessage;
 use std::fs;
 use std::io;
@@ -12,15 +12,20 @@ use std::thread;
 use toml;
 
 pub mod mcsv;
-
 #[cfg(target_os = "windows")]
 mod windows;
 #[cfg(target_os = "windows")]
 pub use self::windows::*;
 
+#[cfg(not(target_os = "windows"))]
+mod not_windows;
+#[cfg(not(target_os = "windows"))]
+pub use self::not_windows::*;
+
 mod auto_stop;
 pub use auto_stop::*;
 
+/// Minecraftサーバを起動します。
 pub fn mcserver_new(jar_file: &str, work_dir: &str, memory: &str) -> io::Result<Child> {
     self::command_new("java")
         .current_dir(work_dir)
@@ -91,11 +96,11 @@ pub fn server_log_sender(
         // EULAへの同意が必要な時
         if buf.contains("You need to agree") {
             sender
-                                    .send(ServerMessage::Error(
-                                        "サーバを開始するには、EULAに同意する必要があります。eula.txtを編集してください。"
-                                            .to_string(),
-                                    ))
-                                    .ok();
+                .send(ServerMessage::Error(
+                    "サーバを開始するには、EULAに同意する必要があります。eula.txtを編集してください。"
+                        .to_string(),
+                ))
+                .ok();
         }
 
         // Minecraftサーバ終了を検知

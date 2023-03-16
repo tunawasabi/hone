@@ -1,5 +1,5 @@
+use crate::config::Config;
 use crate::executor;
-use crate::types::Config;
 use crate::types::ServerMessage;
 use chrono;
 use serenity::http::Http;
@@ -7,6 +7,7 @@ use serenity::model::channel::Channel;
 use serenity::model::channel::Message;
 use serenity::model::gateway::Ready;
 use serenity::model::prelude::ChannelId;
+use serenity::model::prelude::ChannelType;
 use serenity::prelude::*;
 use std::process::{exit, ChildStdin};
 use std::sync::{mpsc, Arc};
@@ -102,6 +103,7 @@ impl EventHandler for Handler {
 
             self.send_message("開始しています……".to_string()).await;
 
+            #[cfg(target_os = "windows")]
             executor::open_port(self.config.server.port);
 
             let config = self.config.clone();
@@ -141,7 +143,9 @@ impl EventHandler for Handler {
                     server_thread.stderr.take().unwrap(),
                 );
 
+                #[cfg(target_os = "windows")]
                 executor::close_port(server_config.port);
+
                 thread_tx.send(ServerMessage::Exit).unwrap();
             });
 
@@ -158,6 +162,7 @@ impl EventHandler for Handler {
 
             let http = Arc::clone(&self.http);
             let channel = self.config.permission.channel_id;
+            let show_public_ip = self.config.client.show_public_ip.unwrap_or(false);
             let stdin = Arc::clone(&self.thread_stdin);
 
             let inputed = Arc::clone(&self.command_inputed);
@@ -211,6 +216,19 @@ impl EventHandler for Handler {
                                 )
                                 .await
                                 .unwrap();
+
+                                if show_public_ip {
+                                    if let Some(ip) = public_ip::addr_v4().await {
+                                        MessageSender::send(
+                                            format!("サーバアドレスは `{}` です。", ip),
+                                            &http,
+                                            channel,
+                                        )
+                                        .await;
+                                    } else {
+                                        println!("IPv4アドレスを取得できませんでした。");
+                                    }
+                                }
 
                                 let thread = ChannelId(channel)
                                     .create_public_thread(&http, invoked_message, |v| {
@@ -313,7 +331,39 @@ impl EventHandler for Handler {
         }
     }
 
-    async fn ready(&self, _: Context, ready: Ready) {
-        println!("Discordに接続しました: {}", ready.user.name);
+    async fn ready(&self, ctx: Context, ready: Ready) {
+        let Ok(channel) = ctx
+            .http
+            .get_channel(self.config.permission.channel_id)
+            .await
+        else {
+            println!("設定で指定されているチャンネルが見つかりません。permisson.channel_id の値を修正してください。");
+            println!("* BOTがチャンネルのあるサーバに参加しているか確認してください。");
+            exit(-1);
+        };
+
+        let Some(channel) = channel.guild() else {
+            println!("プライベートチャンネル、チャンネルカテゴリーを管理用チャンネルに指定することはできません。permisson.channel_id の値を修正してください。");
+            exit(-1);
+        };
+
+        // テキストチャンネルであることを確認
+        if ChannelType::Text != channel.kind {
+            println!("ボイスチャンネルやスレッド、フォーラムなどを管理用チャンネルに指定することはできません。テキストチャンネルを指定してください。");
+            exit(-1);
+        }
+
+        println!("Discordに接続しました。");
+        println!("BOTの名前: {}", ready.user.tag());
+        println!(
+            "管理チャンネル: {} (in {})",
+            channel.name(),
+            channel
+                .guild_id
+                .to_partial_guild(ctx.http)
+                .await
+                .unwrap()
+                .name
+        );
     }
 }

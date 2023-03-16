@@ -2,6 +2,7 @@ use serenity::prelude::*;
 use std::path::Path;
 use std::process::exit;
 
+mod config;
 mod executor;
 mod handler;
 mod types;
