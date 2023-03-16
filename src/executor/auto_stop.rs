@@ -41,7 +41,6 @@ pub fn auto_stop_inspect(
                         }
                     }
                     mpsc::RecvTimeoutError::Disconnected => {
-                        println!("auto_stop_inspect_sender dropped");
                         break;
                     }
                 },
