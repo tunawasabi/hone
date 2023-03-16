@@ -162,6 +162,7 @@ impl EventHandler for Handler {
 
             let http = Arc::clone(&self.http);
             let channel = self.config.permission.channel_id;
+            let show_public_ip = self.config.client.show_public_ip.unwrap_or(false);
             let stdin = Arc::clone(&self.thread_stdin);
 
             let inputed = Arc::clone(&self.command_inputed);
@@ -215,6 +216,19 @@ impl EventHandler for Handler {
                                 )
                                 .await
                                 .unwrap();
+
+                                if show_public_ip {
+                                    if let Some(ip) = public_ip::addr_v4().await {
+                                        MessageSender::send(
+                                            format!("サーバアドレスは `{}` です。", ip),
+                                            &http,
+                                            channel,
+                                        )
+                                        .await;
+                                    } else {
+                                        println!("IPv4アドレスを取得できませんでした。");
+                                    }
+                                }
 
                                 let thread = ChannelId(channel)
                                     .create_public_thread(&http, invoked_message, |v| {
