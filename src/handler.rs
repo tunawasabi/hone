@@ -1,5 +1,5 @@
+use crate::config::Config;
 use crate::executor;
-use crate::types::Config;
 use crate::types::ServerMessage;
 use chrono;
 use serenity::http::Http;

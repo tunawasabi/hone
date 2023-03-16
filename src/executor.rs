@@ -1,4 +1,4 @@
-use crate::types::Config;
+use crate::config::Config;
 use crate::types::ServerMessage;
 use std::fs;
 use std::io;
@@ -12,7 +12,6 @@ use std::thread;
 use toml;
 
 pub mod mcsv;
-
 #[cfg(target_os = "windows")]
 mod windows;
 #[cfg(target_os = "windows")]
