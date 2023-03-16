@@ -11,6 +11,7 @@ pub struct Config {
 #[derive(Deserialize, Clone)]
 pub struct Client {
     pub secret: String,
+    pub show_public_ip: Option<bool>,
 }
 
 /// 権限の設定

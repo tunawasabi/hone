@@ -32,13 +32,16 @@ Discord Developer PortalにてBOTの設定とアクセストークンの取得�
 テンプレート:
 ```toml
 # mcsv-handler-discord 設定
-# v 0.3.0
+# v 0.4.0
 
 [client] # クライアント設定
 
-secret = "TOKEN"
 # Discord Botのシークレットを設定します
 # https://discord.com/developers/applications でトークンを取得してください。
+secret = "TOKEN"
+
+# サーバ起動時にグローバルIPアドレスとポート番号を表示します。
+show_public_ip = false
 
 [permission] # 権限設定
 
