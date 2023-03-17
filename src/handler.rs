@@ -87,23 +87,16 @@ impl EventHandler for Handler {
         let command = args[0];
         let args = args[1..].to_vec();
 
-        // サーバ起動コマンド
-        if command == "mcstart" {
-            mcstart(self).await;
-        }
-        //コマンド入力
-        else if command == "mcc" {
-            send_command_to_server(self, args).await;
-        }
-        // サーバ停止コマンド
-        else if command == "mcend" {
-            send_stop_to_server(self).await;
-        }
-        // クライアント停止コマンド
-        else if command == "mcsvend" {
-            mcsvend(self).await;
-        } else {
-            self.send_message("存在しないコマンドです。").await;
+        match command {
+            // サーバ開始
+            "mcstart" => mcstart(self).await,
+            // コマンド送信
+            "mcc" => send_command_to_server(self, args).await,
+            // サーバ停止
+            "mcend" => send_stop_to_server(self).await,
+            // クライアント停止
+            "mcsvend" => mcsvend(self).await,
+            _ => self.send_message("存在しないコマンドです。").await,
         }
     }
 
