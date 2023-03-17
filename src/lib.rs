@@ -8,7 +8,7 @@ mod handler;
 mod types;
 
 pub async fn start() {
-    let config = executor::read_config().unwrap_or_else(|err| {
+    let config = config::read_config().unwrap_or_else(|err| {
         println!("{}", err);
         exit(-1);
     });
