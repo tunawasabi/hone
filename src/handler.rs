@@ -13,6 +13,9 @@ use std::process::{exit, ChildStdin};
 use std::sync::{mpsc, Arc};
 use std::thread;
 
+mod command;
+use self::command::*;
+
 type ArcMutex<T> = Arc<Mutex<T>>;
 
 pub struct Handler {
@@ -84,14 +87,15 @@ impl EventHandler for Handler {
     async fn message(&self, _: Context, msg: Message) {
         if !self.is_allowed_user(*msg.author.id.as_u64())
             || !self.is_allowed_channel(*msg.channel_id.as_u64())
-            || (msg.content.len() <= 1 && !msg.content.starts_with("!"))
         {
             return;
         }
 
-        let mut message = msg.content[1..].split(' ');
-        let command = message.next().unwrap();
-        let args: Vec<&str> = message.collect();
+        let Some(args) = parse_command(&msg.content) else {
+            return;
+        };
+        let command = args[0];
+        let args = args[1..].to_vec();
 
         // サーバ起動コマンド
         if command == "mcstart" {
@@ -288,22 +292,7 @@ impl EventHandler for Handler {
         }
         //コマンド入力
         else if command == "mcc" {
-            if args.len() == 0 {
-                self.send_message("引数を入力して下さい！").await;
-                return;
-            }
-
-            let mut stdin = self.thread_stdin.lock().await;
-            if stdin.is_some() {
-                stdin.as_mut().unwrap().send(args.join(" ")).unwrap();
-
-                self.send_message("コマンドを送信しました").await;
-
-                let mut inputed = self.command_inputed.lock().await;
-                *inputed = true;
-            } else {
-                self.send_message("起動していません！").await;
-            }
+            send_command_to_server(self, args).await;
         }
         // サーバ停止コマンド
         else if command == "mcend" {
