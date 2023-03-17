@@ -92,8 +92,6 @@ pub async fn mcstart(handler: &Handler) {
     let channel = handler.config.permission.channel_id;
     let show_public_ip = handler.config.client.show_public_ip.unwrap_or(false);
     let stdin = Arc::clone(&handler.thread_stdin);
-
-    let inputed = Arc::clone(&handler.command_inputed);
     let thread_id = Arc::clone(&handler.thread_id);
 
     let tokio_handle = tokio::runtime::Handle::current();
@@ -102,7 +100,6 @@ pub async fn mcstart(handler: &Handler) {
     thread::spawn(move || {
         for v in rx {
             let http = Arc::clone(&http);
-            let inputed = Arc::clone(&inputed);
             let thread_id = Arc::clone(&thread_id);
             let tx3 = tx3.clone();
 
@@ -174,15 +171,6 @@ pub async fn mcstart(handler: &Handler) {
                             tx3.send(-1).ok();
                         }
 
-                        // ユーザからコマンドの入力があった時のみ返信する
-                        let mut inputed = inputed.lock().await;
-                        if *inputed {
-                            MessageSender::send(format!("```{}\n```", message), &http, channel)
-                                .await;
-
-                            *inputed = false;
-                        }
-
                         // スレッドが設定されているなら、スレッドに送信する
                         let thread_id = thread_id.lock().await;
                         if let Some(v) = *thread_id {
@@ -215,11 +203,7 @@ pub async fn send_command_to_server(handler: &Handler, args: Vec<&str>) {
     let mut stdin = handler.thread_stdin.lock().await;
     if stdin.is_some() {
         stdin.as_mut().unwrap().send(args.join(" ")).unwrap();
-
         handler.send_message("コマンドを送信しました").await;
-
-        let mut inputed = handler.command_inputed.lock().await;
-        *inputed = true;
     } else {
         handler.send_message("起動していません！").await;
     }
@@ -227,7 +211,6 @@ pub async fn send_command_to_server(handler: &Handler, args: Vec<&str>) {
 
 pub async fn send_stop_to_server(handler: &Handler) {
     let mut stdin = handler.thread_stdin.lock().await;
-    let mut inputed = handler.command_inputed.lock().await;
 
     if stdin.is_some() {
         stdin.as_mut().unwrap().send("stop".to_string()).unwrap();
@@ -236,7 +219,6 @@ pub async fn send_stop_to_server(handler: &Handler) {
         handler.send_message("終了しています……").await;
 
         *stdin = None;
-        *inputed = false;
     } else {
         handler.send_message("起動していません！").await;
     }

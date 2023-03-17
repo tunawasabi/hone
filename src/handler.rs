@@ -17,7 +17,6 @@ pub struct Handler {
     config: Config,
     http: Arc<Http>,
     thread_stdin: ArcMutex<Option<mpsc::Sender<String>>>,
-    command_inputed: ArcMutex<bool>,
     thread_id: ArcMutex<Option<u64>>,
 }
 
@@ -29,7 +28,6 @@ impl Handler {
             config,
             http,
             thread_stdin: stdin,
-            command_inputed: Arc::new(Mutex::new(false)),
             thread_id: Arc::new(Mutex::new(None)),
         }
     }
