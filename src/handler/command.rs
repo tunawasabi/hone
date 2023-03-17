@@ -30,7 +30,7 @@ pub async fn mcstart(handler: &Handler) {
         return;
     }
 
-    handler.send_message("開始しています……".to_string()).await;
+    handler.send_message("開始しています……").await;
 
     #[cfg(target_os = "windows")]
     executor::open_port(handler.config.server.port);
