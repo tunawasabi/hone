@@ -52,7 +52,8 @@ pub async fn send_stop_to_server(handler: &Handler) {
 }
 
 pub async fn mcsvend(handler: &Handler) {
-    unimplemented!()
+    handler.send_message("クライアントを終了しました。").await;
+    std::process::exit(0);
 }
 
 #[cfg(test)]

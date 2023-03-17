@@ -300,8 +300,7 @@ impl EventHandler for Handler {
         }
         // クライアント停止コマンド
         else if command == "mcsvend" {
-            self.send_message("クライアントを終了しました。").await;
-            exit(0);
+            mcsvend(self).await;
         } else {
             self.send_message("存在しないコマンドです。").await;
         }
