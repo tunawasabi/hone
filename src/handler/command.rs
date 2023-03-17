@@ -179,7 +179,7 @@ pub async fn mcstart(handler: &Handler) {
                     }
                     ServerMessage::Error(e) => {
                         MessageSender::send(
-                            format!(" エラーが発生しました:\n```{}\n```", e),
+                            format!("エラーが発生しました:\n```{}\n```", e),
                             &http,
                             channel,
                         )
@@ -230,7 +230,7 @@ pub async fn mcsvend(handler: &Handler) {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use crate::handler::command::parse_command;
 
     #[test]
