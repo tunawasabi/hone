@@ -1,3 +1,5 @@
+use super::Handler;
+
 pub fn parse_command(message: &str) -> Option<Vec<&str>> {
     if message.len() <= 1 || !message.starts_with("!") {
         return None;
@@ -8,8 +10,12 @@ pub fn parse_command(message: &str) -> Option<Vec<&str>> {
     Some(args)
 }
 
+pub async fn mcstart(handler: &Handler) {
+    unimplemented!()
+}
+
 /// Discordで送信されたコマンドをMinecraftサーバに送信します。
-pub async fn send_command_to_server(handler: &super::Handler, args: Vec<&str>) {
+pub async fn send_command_to_server(handler: &Handler, args: Vec<&str>) {
     if args.len() == 0 {
         handler.send_message("引数を入力して下さい！").await;
         return;
@@ -26,6 +32,27 @@ pub async fn send_command_to_server(handler: &super::Handler, args: Vec<&str>) {
     } else {
         handler.send_message("起動していません！").await;
     }
+}
+
+pub async fn send_stop_to_server(handler: &Handler) {
+    let mut stdin = handler.thread_stdin.lock().await;
+    let mut inputed = handler.command_inputed.lock().await;
+
+    if stdin.is_some() {
+        stdin.as_mut().unwrap().send("stop".to_string()).unwrap();
+
+        println!("stopping...");
+        handler.send_message("終了しています……").await;
+
+        *stdin = None;
+        *inputed = false;
+    } else {
+        handler.send_message("起動していません！").await;
+    }
+}
+
+pub async fn mcsvend(handler: &Handler) {
+    unimplemented!()
 }
 
 #[cfg(test)]

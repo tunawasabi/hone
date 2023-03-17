@@ -296,20 +296,7 @@ impl EventHandler for Handler {
         }
         // サーバ停止コマンド
         else if command == "mcend" {
-            let mut stdin = self.thread_stdin.lock().await;
-            let mut inputed = self.command_inputed.lock().await;
-
-            if stdin.is_some() {
-                stdin.as_mut().unwrap().send("stop".to_string()).unwrap();
-
-                println!("stopping...");
-                self.send_message("終了しています……").await;
-
-                *stdin = None;
-                *inputed = false;
-            } else {
-                self.send_message("起動していません！").await;
-            }
+            send_stop_to_server(self).await;
         }
         // クライアント停止コマンド
         else if command == "mcsvend" {
