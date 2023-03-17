@@ -1,6 +1,4 @@
-use crate::config::Config;
 use crate::types::ServerMessage;
-use std::fs;
 use std::io;
 use std::io::BufRead;
 use std::io::BufReader;
@@ -9,7 +7,6 @@ use std::process::ChildStdout;
 use std::process::{Child, Stdio};
 use std::sync::mpsc;
 use std::thread;
-use toml;
 
 pub mod mcsv;
 #[cfg(target_os = "windows")]
@@ -38,18 +35,6 @@ pub fn mcserver_new(jar_file: &str, work_dir: &str, memory: &str) -> io::Result<
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-}
-
-pub fn read_config() -> Result<Config, String> {
-    let config = match fs::read_to_string("config.toml") {
-        Ok(v) => v,
-        Err(err) => return Err(format!("設定ファイルを開くことができませんでした: {}", err)),
-    };
-
-    match toml::from_str::<Config>(&config) {
-        Ok(config) => Ok(config),
-        Err(err) => Err(format!("設定に誤りがあります: {}", err)),
-    }
 }
 
 pub fn server_log_sender(
