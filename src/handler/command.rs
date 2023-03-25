@@ -201,9 +201,19 @@ pub async fn send_command_to_server(handler: &Handler, args: Vec<&str>) {
     }
 
     let mut stdin = handler.thread_stdin.lock().await;
-    if stdin.is_some() {
-        stdin.as_mut().unwrap().send(args.join(" ")).unwrap();
-        handler.send_message("コマンドを送信しました").await;
+
+    if let Some(stdin) = stdin.as_mut() {
+        let res = stdin.send(args.join(" "));
+        match res {
+            Ok(_) => {
+                handler.send_message("コマンドを送信しました").await;
+            }
+            Err(err) => {
+                handler
+                    .send_message(format!("コマンドを送信できませんでした。\n{}", err))
+                    .await;
+            }
+        };
     } else {
         handler.send_message("起動していません！").await;
     }
@@ -212,16 +222,24 @@ pub async fn send_command_to_server(handler: &Handler, args: Vec<&str>) {
 pub async fn send_stop_to_server(handler: &Handler) {
     let mut stdin = handler.thread_stdin.lock().await;
 
-    if stdin.is_some() {
-        stdin.as_mut().unwrap().send("stop".to_string()).unwrap();
-
-        println!("stopping...");
-        handler.send_message("終了しています……").await;
-
-        *stdin = None;
+    if let Some(stdin) = stdin.as_mut() {
+        let res = stdin.send("stop".to_string());
+        match res {
+            Ok(_) => {
+                println!("stopping...");
+                handler.send_message("終了しています……").await;
+            }
+            Err(err) => {
+                handler
+                    .send_message(format!("終了できませんでした。mcsv-handler-discordを再起動する必要があります。\n{}", err))
+                    .await;
+            }
+        };
     } else {
         handler.send_message("起動していません！").await;
     }
+
+    *stdin = None;
 }
 
 pub async fn mcsvend(handler: &Handler) {
