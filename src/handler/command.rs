@@ -86,7 +86,8 @@ pub async fn mcstart(handler: &Handler) {
     *stdin = Some(command_sender.clone());
 
     // 自動停止システムを起動
-    let tx3 = executor::auto_stop_inspect(command_sender, 120, handler.config.server.auto_stop);
+    let player_notifier =
+        executor::auto_stop_inspect(command_sender, 120, handler.config.server.auto_stop);
 
     let http = Arc::clone(&handler.http);
     let channel = handler.config.permission.channel_id;
@@ -101,7 +102,7 @@ pub async fn mcstart(handler: &Handler) {
         for v in rx {
             let http = Arc::clone(&http);
             let thread_id = Arc::clone(&thread_id);
-            let tx3 = tx3.clone();
+            let player_notifier = player_notifier.clone();
 
             tokio_handle.spawn(async move {
                 match v {
@@ -166,9 +167,9 @@ pub async fn mcstart(handler: &Handler) {
                     }
                     ServerMessage::Info(message) => {
                         if message.contains("joined the game") {
-                            tx3.send(1).ok();
+                            player_notifier.join().ok();
                         } else if message.contains("left the game") {
-                            tx3.send(-1).ok();
+                            player_notifier.leave().ok();
                         }
 
                         // スレッドが設定されているなら、スレッドに送信する
