@@ -11,6 +11,7 @@ pub struct PlayerNotifier(Sender<PlayerNotification>);
 enum PlayerNotification {
     Join,
     Leave,
+    Start,
 }
 
 impl PlayerNotifier {
@@ -22,14 +23,19 @@ impl PlayerNotifier {
         Ok(())
     }
 
-    /// Send a message that a player joined.
+    /// Increment the player count.
     pub fn join(&self) -> PlayerNotifierResult {
         PlayerNotifier::notifier_err_from(self.0.send(PlayerNotification::Join))
     }
 
-    /// Senda  message that a player left.
+    /// Decrement the player count.
     pub fn leave(&self) -> PlayerNotifierResult {
         PlayerNotifier::notifier_err_from(self.0.send(PlayerNotification::Leave))
+    }
+
+    /// Start watching player joining/leaving.
+    pub fn start(&self) -> PlayerNotifierResult {
+        PlayerNotifier::notifier_err_from(self.0.send(PlayerNotification::Start))
     }
 }
 
@@ -37,36 +43,29 @@ pub fn auto_stop_inspect(stdin: Sender<String>, sec: u64) -> PlayerNotifier {
     let (tx, rx) = channel();
 
     thread::spawn(move || {
-        // まだサーバが起動完了していな時に
-        // 初期人数を-1とする
-        let mut players = -1i32;
+        let mut watching = false;
+        let mut players = 0i32;
 
         loop {
             match rx.recv_timeout(time::Duration::from_secs(sec)) {
                 Ok(v) => {
-                    // 初期人数が-1ならば、
-                    // 0に修正する
-                    if players < 0 {
-                        players = 0
-                    }
+                    // メッセージが送信された時点でサーバは開始されていると判断する
+                    watching = true;
 
                     match v {
                         PlayerNotification::Join => players += 1,
                         PlayerNotification::Leave => players -= 1,
+                        _ => {}
                     };
 
                     println!("There is/are {} players", players)
                 }
                 Err(err) => match err {
                     RecvTimeoutError::Timeout => {
-                        if players == 0 {
+                        if watching && players == 0 {
                             println!("自動終了します……");
                             stdin.send("stop".to_string()).ok();
                             break;
-                        }
-
-                        if players < 0 {
-                            players = 0
                         }
                     }
                     RecvTimeoutError::Disconnected => {
@@ -114,7 +113,19 @@ mod tests {
 
         #[allow(unused_variables)]
         let counter = auto_stop_inspect(tx, 1);
+        counter.start().unwrap();
 
         assert_eq!(rx.recv().unwrap(), "stop");
+    }
+
+    #[test]
+    fn not_stop_when_watching_disabled() {
+        let (tx, _) = mpsc::channel();
+
+        #[allow(unused_variables)]
+        let counter = auto_stop_inspect(tx, 1);
+        thread::sleep(Duration::from_secs(2));
+
+        assert!(counter.join().is_ok());
     }
 }

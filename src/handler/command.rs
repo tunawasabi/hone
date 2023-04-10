@@ -167,6 +167,10 @@ pub async fn mcstart(handler: &Handler) {
 
                         let mut thread_id = thread_id.lock().await;
                         *thread_id = Some(thread.id);
+
+                        if let Some(player_notifier) = player_notifier {
+                            player_notifier.start().unwrap();
+                        }
                     }
                     ServerMessage::Info(message) => {
                         if let Some(player_notifier) = player_notifier {
