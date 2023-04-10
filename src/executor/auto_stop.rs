@@ -3,21 +3,33 @@ use std::{
     thread, time,
 };
 
-type PlayerNotifierResult = Result<(), SendError<i32>>;
+type PlayerNotifierResult = Result<(), ()>;
 
 /// Player joining/leaving notifier.
 #[derive(Clone)]
-pub struct PlayerNotifier(Sender<i32>);
+pub struct PlayerNotifier(Sender<PlayerNotification>);
+enum PlayerNotification {
+    Join,
+    Leave,
+}
 
 impl PlayerNotifier {
+    fn notifier_err_from(res: Result<(), SendError<PlayerNotification>>) -> Result<(), ()> {
+        if res.is_err() {
+            return Err(());
+        };
+
+        Ok(())
+    }
+
     /// Send a message that a player joined.
     pub fn join(&self) -> PlayerNotifierResult {
-        self.0.send(1)
+        PlayerNotifier::notifier_err_from(self.0.send(PlayerNotification::Join))
     }
 
     /// Senda  message that a player left.
     pub fn leave(&self) -> PlayerNotifierResult {
-        self.0.send(-1)
+        PlayerNotifier::notifier_err_from(self.0.send(PlayerNotification::Leave))
     }
 }
 
@@ -38,7 +50,11 @@ pub fn auto_stop_inspect(stdin: Sender<String>, sec: u64) -> PlayerNotifier {
                         players = 0
                     }
 
-                    players += v;
+                    match v {
+                        PlayerNotification::Join => players += 1,
+                        PlayerNotification::Leave => players -= 1,
+                    };
+
                     println!("There is/are {} players", players)
                 }
                 Err(err) => match err {
@@ -70,14 +86,6 @@ mod tests {
     use std::sync::mpsc;
     use std::time::Duration;
 
-    impl PlayerNotifier {
-        /// Send a empty message. This doesn't modify the count,
-        /// but it extends the duration of server running when there are no players.
-        pub fn ping(&self) -> PlayerNotifierResult {
-            self.0.send(0)
-        }
-    }
-
     #[test]
     fn auto_stop_after_all_players_leaved() {
         let (tx, _) = mpsc::channel();
@@ -87,7 +95,7 @@ mod tests {
         std::thread::sleep(Duration::from_secs(3));
         r.leave().unwrap();
         std::thread::sleep(Duration::from_secs(3));
-        assert!(r.ping().is_err());
+        assert!(r.join().is_err());
     }
 
     #[test]
@@ -97,7 +105,7 @@ mod tests {
 
         r.join().unwrap();
         std::thread::sleep(Duration::from_secs(2));
-        assert!(r.ping().is_ok());
+        assert!(r.join().is_ok());
     }
 
     #[test]
