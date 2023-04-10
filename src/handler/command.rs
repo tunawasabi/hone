@@ -90,7 +90,7 @@ pub async fn mcstart(handler: &Handler) {
         executor::auto_stop_inspect(command_sender, 120, handler.config.server.auto_stop);
 
     let http = Arc::clone(&handler.http);
-    let channel = handler.config.permission.channel_id;
+    let channel = ChannelId(handler.config.permission.channel_id);
     let show_public_ip = handler.config.client.show_public_ip.unwrap_or(false);
     let stdin = Arc::clone(&handler.thread_stdin);
     let thread_id = Arc::clone(&handler.thread_id);
@@ -111,8 +111,8 @@ pub async fn mcstart(handler: &Handler) {
 
                         let thread_id = thread_id.lock().await;
 
-                        if let Some(v) = *thread_id {
-                            if let Ok(Channel::Guild(channel)) = &http.get_channel(v).await {
+                        if let Some(thread_id) = *thread_id {
+                            if let Ok(Channel::Guild(channel)) = thread_id.to_channel(&http).await {
                                 let name = channel.name();
 
                                 channel
@@ -150,7 +150,7 @@ pub async fn mcstart(handler: &Handler) {
                             }
                         }
 
-                        let thread = ChannelId(channel)
+                        let thread = channel
                             .create_public_thread(&http, invoked_message, |v| {
                                 v.name(format!(
                                     "{} Minecraftサーバログ {}",
@@ -163,7 +163,7 @@ pub async fn mcstart(handler: &Handler) {
                             .unwrap();
 
                         let mut thread_id = thread_id.lock().await;
-                        *thread_id = Some(thread.id.0);
+                        *thread_id = Some(thread.id);
                     }
                     ServerMessage::Info(message) => {
                         if message.contains("joined the game") {

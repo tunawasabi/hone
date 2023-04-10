@@ -17,7 +17,7 @@ pub struct Handler {
     config: Config,
     http: Arc<Http>,
     thread_stdin: ArcMutex<Option<mpsc::Sender<String>>>,
-    thread_id: ArcMutex<Option<u64>>,
+    thread_id: ArcMutex<Option<ChannelId>>,
 }
 
 impl Handler {
@@ -57,9 +57,7 @@ impl Handler {
 
 struct MessageSender;
 impl MessageSender {
-    async fn send(message: impl AsRef<str>, http: &Http, channel: u64) -> Option<Message> {
-        let channel = ChannelId(channel);
-
+    async fn send(message: impl AsRef<str>, http: &Http, channel: ChannelId) -> Option<Message> {
         match channel.say(http, message.as_ref()).await {
             Ok(msg) => Some(msg),
             Err(e) => {
