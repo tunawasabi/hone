@@ -87,7 +87,7 @@ pub async fn mcstart(handler: &Handler) {
 
     // 自動停止システムを起動
     let player_notifier = if handler.config.server.auto_stop {
-        Some(executor::auto_stop_inspect(command_sender, 120))
+        Some(executor::auto_stop_inspect(command_sender, 180))
     } else {
         None
     };
