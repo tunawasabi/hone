@@ -21,14 +21,10 @@ impl PlayerNotifier {
     }
 }
 
-pub fn auto_stop_inspect(stdin: Sender<String>, sec: u64, is_enabled: bool) -> PlayerNotifier {
+pub fn auto_stop_inspect(stdin: Sender<String>, sec: u64) -> PlayerNotifier {
     let (tx, rx) = channel();
 
     thread::spawn(move || {
-        if !is_enabled {
-            return;
-        }
-
         // まだサーバが起動完了していな時に
         // 初期人数を-1とする
         let mut players = -1i32;
@@ -85,7 +81,7 @@ mod tests {
     #[test]
     fn auto_stop_after_all_players_leaved() {
         let (tx, _) = mpsc::channel();
-        let r = auto_stop_inspect(tx, 2, true);
+        let r = auto_stop_inspect(tx, 2);
 
         r.join().unwrap();
         std::thread::sleep(Duration::from_secs(3));
@@ -97,7 +93,7 @@ mod tests {
     #[test]
     fn do_not_stop_when_player_is_joining() {
         let (tx, _) = mpsc::channel();
-        let r = auto_stop_inspect(tx, 1, true);
+        let r = auto_stop_inspect(tx, 1);
 
         r.join().unwrap();
         std::thread::sleep(Duration::from_secs(2));
@@ -105,21 +101,11 @@ mod tests {
     }
 
     #[test]
-    fn channel_closed_when_auto_stop_disabled() {
-        let (tx, _) = mpsc::channel();
-        let r = auto_stop_inspect(tx, 120, false);
-
-        std::thread::sleep(std::time::Duration::from_secs(1));
-
-        assert!(r.ping().is_err());
-    }
-
-    #[test]
     fn auto_stop_when_timeouted_and_no_player() {
         let (tx, rx) = mpsc::channel();
 
         #[allow(unused_variables)]
-        let counter = auto_stop_inspect(tx, 1, true);
+        let counter = auto_stop_inspect(tx, 1);
 
         assert_eq!(rx.recv().unwrap(), "stop");
     }

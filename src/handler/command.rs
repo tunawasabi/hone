@@ -86,8 +86,11 @@ pub async fn mcstart(handler: &Handler) {
     *stdin = Some(command_sender.clone());
 
     // 自動停止システムを起動
-    let player_notifier =
-        executor::auto_stop_inspect(command_sender, 120, handler.config.server.auto_stop);
+    let player_notifier = if handler.config.server.auto_stop {
+        Some(executor::auto_stop_inspect(command_sender, 120))
+    } else {
+        None
+    };
 
     let http = Arc::clone(&handler.http);
     let channel = ChannelId(handler.config.permission.channel_id);
@@ -166,10 +169,12 @@ pub async fn mcstart(handler: &Handler) {
                         *thread_id = Some(thread.id);
                     }
                     ServerMessage::Info(message) => {
-                        if message.contains("joined the game") {
-                            player_notifier.join().ok();
-                        } else if message.contains("left the game") {
-                            player_notifier.leave().ok();
+                        if let Some(player_notifier) = player_notifier {
+                            if message.contains("joined the game") {
+                                player_notifier.join().ok();
+                            } else if message.contains("left the game") {
+                                player_notifier.leave().ok();
+                            }
                         }
 
                         // スレッドが設定されているなら、スレッドに送信する
