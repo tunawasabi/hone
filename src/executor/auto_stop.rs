@@ -1,11 +1,28 @@
-use std::{sync::mpsc, thread, time};
+use std::{
+    sync::mpsc::{channel, RecvTimeoutError, SendError, Sender},
+    thread, time,
+};
 
-pub fn auto_stop_inspect(
-    stdin: mpsc::Sender<String>,
-    sec: u64,
-    is_enabled: bool,
-) -> mpsc::Sender<i32> {
-    let (tx, rx) = mpsc::channel();
+type PlayerNotifierResult = Result<(), SendError<i32>>;
+
+/// Player joining/leaving notifier.
+#[derive(Clone)]
+pub struct PlayerNotifier(Sender<i32>);
+
+impl PlayerNotifier {
+    /// Send a message that a player joined.
+    pub fn join(&self) -> PlayerNotifierResult {
+        self.0.send(1)
+    }
+
+    /// Senda  message that a player left.
+    pub fn leave(&self) -> PlayerNotifierResult {
+        self.0.send(-1)
+    }
+}
+
+pub fn auto_stop_inspect(stdin: Sender<String>, sec: u64, is_enabled: bool) -> PlayerNotifier {
+    let (tx, rx) = channel();
 
     thread::spawn(move || {
         if !is_enabled {
@@ -29,7 +46,7 @@ pub fn auto_stop_inspect(
                     println!("There is/are {} players", players)
                 }
                 Err(err) => match err {
-                    mpsc::RecvTimeoutError::Timeout => {
+                    RecvTimeoutError::Timeout => {
                         if players == 0 {
                             println!("自動終了します……");
                             stdin.send("stop".to_string()).ok();
@@ -40,7 +57,7 @@ pub fn auto_stop_inspect(
                             players = 0
                         }
                     }
-                    mpsc::RecvTimeoutError::Disconnected => {
+                    RecvTimeoutError::Disconnected => {
                         break;
                     }
                 },
@@ -48,26 +65,33 @@ pub fn auto_stop_inspect(
         }
     });
 
-    tx
+    PlayerNotifier(tx)
 }
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use std::sync::mpsc;
     use std::time::Duration;
 
-    use super::auto_stop_inspect;
+    impl PlayerNotifier {
+        /// Send a empty message. This doesn't modify the count,
+        /// but it extends the duration of server running when there are no players.
+        pub fn ping(&self) -> PlayerNotifierResult {
+            self.0.send(0)
+        }
+    }
 
     #[test]
     fn auto_stop_after_all_players_leaved() {
         let (tx, _) = mpsc::channel();
         let r = auto_stop_inspect(tx, 2, true);
 
-        r.send(1).unwrap();
+        r.join().unwrap();
         std::thread::sleep(Duration::from_secs(3));
-        r.send(-1).unwrap();
+        r.leave().unwrap();
         std::thread::sleep(Duration::from_secs(3));
-        assert!(r.send(0).is_err());
+        assert!(r.ping().is_err());
     }
 
     #[test]
@@ -75,9 +99,9 @@ mod tests {
         let (tx, _) = mpsc::channel();
         let r = auto_stop_inspect(tx, 1, true);
 
-        r.send(1).unwrap();
+        r.join().unwrap();
         std::thread::sleep(Duration::from_secs(2));
-        assert!(r.send(0).is_ok());
+        assert!(r.ping().is_ok());
     }
 
     #[test]
@@ -87,7 +111,7 @@ mod tests {
 
         std::thread::sleep(std::time::Duration::from_secs(1));
 
-        assert!(r.send(0).is_err());
+        assert!(r.ping().is_err());
     }
 
     #[test]
