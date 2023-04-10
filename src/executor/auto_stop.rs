@@ -88,9 +88,9 @@ mod tests {
         let r = auto_stop_inspect(tx, 2, true);
 
         r.join().unwrap();
-        std::thread::sleep(Duration::from_secs(3));
+        std::thread::sleep(Duration::from_secs(2));
         r.leave().unwrap();
-        std::thread::sleep(Duration::from_secs(3));
+        std::thread::sleep(Duration::from_secs(2));
         assert!(r.ping().is_err());
     }
 
