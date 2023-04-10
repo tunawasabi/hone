@@ -1,11 +1,10 @@
-use std::{sync::mpsc, thread, time};
+use std::{
+    sync::mpsc::{channel, RecvTimeoutError, Sender},
+    thread, time,
+};
 
-pub fn auto_stop_inspect(
-    stdin: mpsc::Sender<String>,
-    sec: u64,
-    is_enabled: bool,
-) -> mpsc::Sender<i32> {
-    let (tx, rx) = mpsc::channel();
+pub fn auto_stop_inspect(stdin: Sender<String>, sec: u64, is_enabled: bool) -> Sender<i32> {
+    let (tx, rx) = channel();
 
     thread::spawn(move || {
         if !is_enabled {
@@ -29,7 +28,7 @@ pub fn auto_stop_inspect(
                     println!("There is/are {} players", players)
                 }
                 Err(err) => match err {
-                    mpsc::RecvTimeoutError::Timeout => {
+                    RecvTimeoutError::Timeout => {
                         if players == 0 {
                             println!("自動終了します……");
                             stdin.send("stop".to_string()).ok();
@@ -40,7 +39,7 @@ pub fn auto_stop_inspect(
                             players = 0
                         }
                     }
-                    mpsc::RecvTimeoutError::Disconnected => {
+                    RecvTimeoutError::Disconnected => {
                         break;
                     }
                 },
