@@ -6,7 +6,7 @@ use serenity::model::prelude::ChannelId;
 use std::sync::mpsc::{sync_channel, RecvTimeoutError::*, SyncSender};
 use std::time::Duration;
 
-const MESSAGE_INTERVAL: u64 = 1;
+const MESSAGE_INTERVAL: Duration = Duration::from_millis(800);
 const MESSAGE_NUMBER_THRESHOLD: usize = 5;
 
 pub struct LogSender {
@@ -29,7 +29,7 @@ impl LogSender {
                 loop {
                     let mut send_flag = false;
 
-                    match rx.recv_timeout(Duration::from_secs(MESSAGE_INTERVAL)) {
+                    match rx.recv_timeout(MESSAGE_INTERVAL) {
                         Ok(v) => {
                             buf.push(v);
 
