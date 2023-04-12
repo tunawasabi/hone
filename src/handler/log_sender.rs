@@ -57,6 +57,10 @@ impl LogSender {
                         {
                             break;
                         };
+
+                        // reset buffer
+                        buf.clear();
+                        str_length = 0;
                     }
                 }
             });
