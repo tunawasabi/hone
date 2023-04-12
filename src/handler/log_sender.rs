@@ -7,7 +7,7 @@ use std::sync::mpsc::{sync_channel, RecvTimeoutError::*, SyncSender};
 use std::time::Duration;
 
 const MESSAGE_INTERVAL: u64 = 1;
-const LENGTH_THRESHOLD: usize = 5;
+const MESSAGE_NUMBER_THRESHOLD: usize = 5;
 
 pub struct LogSender {
     pub channel_id: ChannelId,
@@ -16,7 +16,7 @@ pub struct LogSender {
 
 impl LogSender {
     pub fn new(channel_id: ChannelId, http: Arc<Http>) -> LogSender {
-        let (sender, rx) = sync_channel::<String>(LENGTH_THRESHOLD);
+        let (sender, rx) = sync_channel::<String>(MESSAGE_NUMBER_THRESHOLD);
 
         thread::spawn(move || {
             let rt = tokio::runtime::Builder::new_current_thread()
@@ -26,17 +26,14 @@ impl LogSender {
 
             rt.block_on(async {
                 let mut buf: Vec<String> = Vec::new();
-                let mut str_length = 0;
-
                 loop {
                     let mut send_flag = false;
 
                     match rx.recv_timeout(Duration::from_secs(MESSAGE_INTERVAL)) {
                         Ok(v) => {
-                            str_length += v.len();
                             buf.push(v);
 
-                            if buf.len() >= LENGTH_THRESHOLD {
+                            if buf.len() >= MESSAGE_NUMBER_THRESHOLD {
                                 send_flag = true;
                             }
                         }
@@ -60,7 +57,6 @@ impl LogSender {
 
                         // reset buffer
                         buf.clear();
-                        str_length = 0;
                     }
                 }
             });
@@ -78,7 +74,7 @@ impl LogSender {
     }
 
     async fn internal_say(
-        messages: &Vec<String>,
+        messages: &[String],
         http: &Http,
         thread: ChannelId,
     ) -> Result<serenity::model::prelude::Message, serenity::Error> {
