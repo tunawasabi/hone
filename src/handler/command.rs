@@ -27,11 +27,30 @@ pub fn parse_command(message: &str) -> Option<Vec<&str>> {
 pub async fn mcstart(handler: &Handler) {
     // 標準入力が存在するなら, 既に起動しているのでreturnする
     if handler.is_server_running().await {
-        handler.send_message("すでに起動しています！").await;
+        handler.send_message("すでに起動しています！").await.ok();
         return;
     }
 
-    handler.send_message("開始しています……").await;
+    // サーバログを出力するスレッドを作成する
+    {
+        let start_message = handler.send_message("開始しています……").await.unwrap();
+
+        let thread = start_message
+            .channel_id
+            .create_public_thread(&handler.http, start_message.id, |v| {
+                v.name(format!(
+                    "{} Minecraftサーバログ {}",
+                    RUNNING_INDICATER,
+                    chrono::Local::now().format("%Y/%m/%d %H:%M")
+                ))
+                .auto_archive_duration(60)
+            })
+            .await
+            .unwrap();
+
+        let mut thread_id = handler.log_thread.lock().await;
+        *thread_id = Some(LogSender::new(thread.id, Arc::clone(&handler.http)));
+    }
 
     #[cfg(target_os = "windows")]
     executor::open_port(handler.config.server.port);
@@ -135,7 +154,7 @@ pub async fn mcstart(handler: &Handler) {
                         MessageSender::send("終了しました", &http, channel).await;
                     }
                     ServerMessage::Done => {
-                        let invoked_message = MessageSender::send(
+                        MessageSender::send(
                             "サーバが起動しました！サーバログをスレッドから確認できます。",
                             &http,
                             channel,
@@ -155,21 +174,6 @@ pub async fn mcstart(handler: &Handler) {
                                 println!("IPv4アドレスを取得できませんでした。");
                             }
                         }
-
-                        let thread = channel
-                            .create_public_thread(&http, invoked_message, |v| {
-                                v.name(format!(
-                                    "{} Minecraftサーバログ {}",
-                                    RUNNING_INDICATER,
-                                    chrono::Local::now().format("%Y/%m/%d %H:%M")
-                                ))
-                                .auto_archive_duration(60)
-                            })
-                            .await
-                            .unwrap();
-
-                        let mut thread_id = log_thread.lock().await;
-                        *thread_id = Some(LogSender::new(thread.id, http));
 
                         if let Some(player_notifier) = player_notifier {
                             player_notifier.start().unwrap();
@@ -209,7 +213,7 @@ pub async fn mcstart(handler: &Handler) {
 /// Discordで送信されたコマンドをMinecraftサーバに送信します。
 pub async fn send_command_to_server(handler: &Handler, args: Vec<&str>) {
     if args.len() == 0 {
-        handler.send_message("引数を入力して下さい！").await;
+        handler.send_message("引数を入力して下さい！").await.ok();
         return;
     }
 
@@ -219,16 +223,17 @@ pub async fn send_command_to_server(handler: &Handler, args: Vec<&str>) {
         let res = stdin.send(args.join(" "));
         match res {
             Ok(_) => {
-                handler.send_message("コマンドを送信しました").await;
+                handler.send_message("コマンドを送信しました").await.ok();
             }
             Err(err) => {
                 handler
                     .send_message(format!("コマンドを送信できませんでした。\n{}", err))
-                    .await;
+                    .await
+                    .ok();
             }
         };
     } else {
-        handler.send_message("起動していません！").await;
+        handler.send_message("起動していません！").await.ok();
     }
 }
 
@@ -240,23 +245,26 @@ pub async fn send_stop_to_server(handler: &Handler) {
         match res {
             Ok(_) => {
                 println!("stopping...");
-                handler.send_message("終了しています……").await;
+                handler.send_message("終了しています……").await.ok();
             }
             Err(err) => {
                 handler
                     .send_message(format!("終了できませんでした。mcsv-handler-discordを再起動する必要があります。\n{}", err))
-                    .await;
+                    .await.ok();
             }
         };
     } else {
-        handler.send_message("起動していません！").await;
+        handler.send_message("起動していません！").await.ok();
     }
 
     *stdin = None;
 }
 
 pub async fn mcsvend(handler: &Handler) {
-    handler.send_message("クライアントを終了しました。").await;
+    handler
+        .send_message("クライアントを終了しました。")
+        .await
+        .ok();
     std::process::exit(0);
 }
 
