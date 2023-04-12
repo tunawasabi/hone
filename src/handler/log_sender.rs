@@ -25,33 +25,31 @@ impl LogSender {
 
             let mut buf: Vec<String> = Vec::new();
 
-            loop {
-                match rx.recv_timeout(Duration::from_secs(MESSAGE_INTERVAL)) {
-                    Ok(v) => {
-                        buf.push(v);
+            rt.block_on(async {
+                loop {
+                    match rx.recv_timeout(Duration::from_secs(MESSAGE_INTERVAL)) {
+                        Ok(v) => {
+                            buf.push(v);
 
-                        if buf.len() >= LENGTH_THRESHOLD {
-                            rt.block_on(async {
+                            if buf.len() >= LENGTH_THRESHOLD {
                                 LogSender::internal_say(&mut buf, &http, channel_id)
                                     .await
                                     .ok();
-                            });
+                            }
                         }
-                    }
-                    Err(err) => match err {
-                        Timeout => {
-                            if !buf.is_empty() {
-                                rt.block_on(async {
+                        Err(err) => match err {
+                            Timeout => {
+                                if !buf.is_empty() {
                                     LogSender::internal_say(&mut buf, &http, channel_id)
                                         .await
                                         .ok();
-                                })
+                                }
                             }
-                        }
-                        Disconnected => break,
-                    },
-                };
-            }
+                            Disconnected => break,
+                        },
+                    };
+                }
+            });
         });
 
         LogSender { sender, channel_id }
