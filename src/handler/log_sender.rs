@@ -8,6 +8,7 @@ use std::time::Duration;
 
 const MESSAGE_INTERVAL: u64 = 1;
 const LENGTH_THRESHOLD: usize = 5;
+
 pub struct LogSender {
     pub channel_id: ChannelId,
     sender: SyncSender<String>,
@@ -15,7 +16,7 @@ pub struct LogSender {
 
 impl LogSender {
     pub fn new(channel_id: ChannelId, http: Arc<Http>) -> LogSender {
-        let (sender, rx) = sync_channel(LENGTH_THRESHOLD);
+        let (sender, rx) = sync_channel::<String>(LENGTH_THRESHOLD);
 
         thread::spawn(move || {
             let rt = tokio::runtime::Builder::new_current_thread()
@@ -23,31 +24,40 @@ impl LogSender {
                 .build()
                 .unwrap();
 
-            let mut buf: Vec<String> = Vec::new();
-
             rt.block_on(async {
+                let mut buf: Vec<String> = Vec::new();
+                let mut str_length = 0;
+
                 loop {
+                    let mut send_flag = false;
+
                     match rx.recv_timeout(Duration::from_secs(MESSAGE_INTERVAL)) {
                         Ok(v) => {
+                            str_length += v.len();
                             buf.push(v);
 
                             if buf.len() >= LENGTH_THRESHOLD {
-                                LogSender::internal_say(&mut buf, &http, channel_id)
-                                    .await
-                                    .ok();
+                                send_flag = true;
                             }
                         }
                         Err(err) => match err {
                             Timeout => {
                                 if !buf.is_empty() {
-                                    LogSender::internal_say(&mut buf, &http, channel_id)
-                                        .await
-                                        .ok();
+                                    send_flag = true;
                                 }
                             }
                             Disconnected => break,
                         },
                     };
+
+                    if send_flag {
+                        if LogSender::internal_say(&buf, &http, channel_id)
+                            .await
+                            .is_err()
+                        {
+                            break;
+                        };
+                    }
                 }
             });
         });
@@ -64,13 +74,10 @@ impl LogSender {
     }
 
     async fn internal_say(
-        messages: &mut Vec<String>,
+        messages: &Vec<String>,
         http: &Http,
         thread: ChannelId,
     ) -> Result<serenity::model::prelude::Message, serenity::Error> {
-        let res = thread.say(http, messages.concat()).await;
-        messages.clear();
-
-        res
+        thread.say(http, messages.concat()).await
     }
 }
