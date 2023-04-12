@@ -10,6 +10,8 @@ use std::process::exit;
 use std::sync::{mpsc, Arc};
 
 mod command;
+mod log_sender;
+use log_sender::*;
 
 type ArcMutex<T> = Arc<Mutex<T>>;
 
@@ -17,7 +19,7 @@ pub struct Handler {
     config: Config,
     http: Arc<Http>,
     thread_stdin: ArcMutex<Option<mpsc::Sender<String>>>,
-    thread_id: ArcMutex<Option<ChannelId>>,
+    log_thread: ArcMutex<Option<LogSender>>,
 }
 
 impl Handler {
@@ -28,7 +30,7 @@ impl Handler {
             config,
             http,
             thread_stdin: stdin,
-            thread_id: Arc::new(Mutex::new(None)),
+            log_thread: Arc::new(Mutex::new(None)),
         }
     }
 

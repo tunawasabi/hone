@@ -1,3 +1,4 @@
+use super::log_sender::LogSender;
 use super::Handler;
 use super::MessageSender;
 use crate::executor;
@@ -96,7 +97,7 @@ pub async fn mcstart(handler: &Handler) {
     let channel = ChannelId(handler.config.permission.channel_id);
     let show_public_ip = handler.config.client.show_public_ip.unwrap_or(false);
     let stdin = Arc::clone(&handler.thread_stdin);
-    let thread_id = Arc::clone(&handler.thread_id);
+    let log_thread = Arc::clone(&handler.log_thread);
 
     let tokio_handle = tokio::runtime::Handle::current();
 
@@ -104,7 +105,7 @@ pub async fn mcstart(handler: &Handler) {
     thread::spawn(move || {
         for v in rx {
             let http = Arc::clone(&http);
-            let thread_id = Arc::clone(&thread_id);
+            let log_thread = Arc::clone(&log_thread);
             let player_notifier = player_notifier.clone();
 
             tokio_handle.spawn(async move {
@@ -112,10 +113,12 @@ pub async fn mcstart(handler: &Handler) {
                     ServerMessage::Exit => {
                         println!("サーバが停止しました。");
 
-                        let thread_id = thread_id.lock().await;
+                        let log_thread = log_thread.lock().await;
 
-                        if let Some(thread_id) = *thread_id {
-                            if let Ok(Channel::Guild(channel)) = thread_id.to_channel(&http).await {
+                        if let Some(ref log_thread) = *log_thread {
+                            if let Ok(Channel::Guild(channel)) =
+                                log_thread.channel_id.to_channel(&http).await
+                            {
                                 let name = channel.name();
 
                                 channel
@@ -165,8 +168,8 @@ pub async fn mcstart(handler: &Handler) {
                             .await
                             .unwrap();
 
-                        let mut thread_id = thread_id.lock().await;
-                        *thread_id = Some(thread.id);
+                        let mut thread_id = log_thread.lock().await;
+                        *thread_id = Some(LogSender::new(thread.id, http));
 
                         if let Some(player_notifier) = player_notifier {
                             player_notifier.start().unwrap();
@@ -182,9 +185,9 @@ pub async fn mcstart(handler: &Handler) {
                         }
 
                         // スレッドが設定されているなら、スレッドに送信する
-                        let thread_id = thread_id.lock().await;
-                        if let Some(v) = *thread_id {
-                            MessageSender::send(message, &http, v).await;
+                        let thread_id = log_thread.lock().await;
+                        if let Some(ref v) = *thread_id {
+                            v.say(message).ok();
                         }
                     }
                     ServerMessage::Error(e) => {
