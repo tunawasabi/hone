@@ -1,4 +1,18 @@
 use serde_derive::Deserialize;
+use std::fs;
+use toml;
+
+pub fn read_config() -> Result<Config, String> {
+    let config = match fs::read_to_string("config.toml") {
+        Ok(v) => v,
+        Err(err) => return Err(format!("設定ファイルを開くことができませんでした: {}", err)),
+    };
+
+    match toml::from_str::<Config>(&config) {
+        Ok(config) => Ok(config),
+        Err(err) => Err(format!("設定に誤りがあります: {}", err)),
+    }
+}
 
 #[derive(Deserialize, Clone)]
 pub struct Config {
