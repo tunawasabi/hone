@@ -118,16 +118,15 @@ pub async fn mcstart(handler: &Handler) {
     let stdin = Arc::clone(&handler.thread_stdin);
     let log_thread = Arc::clone(&handler.log_thread);
 
-    let tokio_handle = tokio::runtime::Handle::current();
-
     // メッセージ処理を行うスレッド
     thread::spawn(move || {
-        for v in rx {
-            let http = Arc::clone(&http);
-            let log_thread = Arc::clone(&log_thread);
-            let player_notifier = player_notifier.clone();
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
 
-            tokio_handle.spawn(async move {
+        rt.block_on(async {
+            for v in rx {
                 match v {
                     ServerMessage::Exit => {
                         println!("サーバが停止しました。");
@@ -175,12 +174,12 @@ pub async fn mcstart(handler: &Handler) {
                             }
                         }
 
-                        if let Some(player_notifier) = player_notifier {
+                        if let Some(ref player_notifier) = player_notifier {
                             player_notifier.start().unwrap();
                         }
                     }
                     ServerMessage::Info(message) => {
-                        if let Some(player_notifier) = player_notifier {
+                        if let Some(ref player_notifier) = player_notifier {
                             if message.contains("joined the game") {
                                 player_notifier.join().ok();
                             } else if message.contains("left the game") {
@@ -203,8 +202,8 @@ pub async fn mcstart(handler: &Handler) {
                         .await;
                     }
                 }
-            });
-        }
+            }
+        });
         let mut stdin = stdin.blocking_lock();
         *stdin = None;
     });
