@@ -10,6 +10,8 @@ use std::process::exit;
 use std::sync::{mpsc, Arc};
 
 mod command;
+mod log_sender;
+use log_sender::*;
 
 type ArcMutex<T> = Arc<Mutex<T>>;
 
@@ -17,7 +19,7 @@ pub struct Handler {
     config: Config,
     http: Arc<Http>,
     thread_stdin: ArcMutex<Option<mpsc::Sender<String>>>,
-    thread_id: ArcMutex<Option<ChannelId>>,
+    log_thread: ArcMutex<Option<LogSender>>,
 }
 
 impl Handler {
@@ -28,16 +30,13 @@ impl Handler {
             config,
             http,
             thread_stdin: stdin,
-            thread_id: Arc::new(Mutex::new(None)),
+            log_thread: Arc::new(Mutex::new(None)),
         }
     }
 
-    async fn send_message(&self, message: impl AsRef<str>) {
+    async fn send_message(&self, message: impl AsRef<str>) -> Result<Message, SerenityError> {
         let channel = ChannelId(self.config.permission.channel_id);
-
-        if let Err(e) = channel.say(&self.http, message.as_ref()).await {
-            println!("{}", e);
-        }
+        channel.say(&self.http, message.as_ref()).await
     }
 
     async fn is_server_running(&self) -> bool {
@@ -92,7 +91,9 @@ impl EventHandler for Handler {
             "mcend" => send_stop_to_server(self).await,
             // クライアント停止
             "mcsvend" => mcsvend(self).await,
-            _ => self.send_message("存在しないコマンドです。").await,
+            _ => {
+                self.send_message("存在しないコマンドです。").await.ok();
+            }
         }
     }
 

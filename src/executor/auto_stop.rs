@@ -1,5 +1,5 @@
 use std::{
-    sync::mpsc::{channel, RecvTimeoutError, SendError, Sender},
+    sync::mpsc::{channel, RecvTimeoutError::*, SendError, Sender},
     thread, time,
 };
 
@@ -61,14 +61,14 @@ pub fn auto_stop_inspect(stdin: Sender<String>, sec: u64) -> PlayerNotifier {
                     println!("There is/are {} players", players)
                 }
                 Err(err) => match err {
-                    RecvTimeoutError::Timeout => {
+                    Timeout => {
                         if watching && players == 0 {
                             println!("自動終了します……");
                             stdin.send("stop".to_string()).ok();
                             break;
                         }
                     }
-                    RecvTimeoutError::Disconnected => {
+                    Disconnected => {
                         break;
                     }
                 },
