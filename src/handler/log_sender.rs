@@ -7,7 +7,8 @@ use std::sync::mpsc::{sync_channel, RecvTimeoutError::*, SyncSender};
 use std::time::Duration;
 
 const MESSAGE_INTERVAL: Duration = Duration::from_millis(800);
-const MESSAGE_NUMBER_THRESHOLD: usize = 5;
+const MESSAGE_NUMBER_THRESHOLD: usize = 10;
+const DISCORD_MESSAGE_LENGTH_LIMIT: usize = 900;
 
 pub struct LogSender {
     pub channel_id: ChannelId,
@@ -78,6 +79,17 @@ impl LogSender {
         http: &Http,
         thread: ChannelId,
     ) -> Result<serenity::model::prelude::Message, serenity::Error> {
-        thread.say(http, messages.concat()).await
+        let messages = messages.concat();
+
+        if messages.len() <= DISCORD_MESSAGE_LENGTH_LIMIT {
+            thread.say(http, LogSender::wrap_codeblock(&messages)).await
+        } else {
+            let messages = &messages[..DISCORD_MESSAGE_LENGTH_LIMIT];
+            thread.say(http, LogSender::wrap_codeblock(&format!("{messages}……\n\n出力が長いため、省略されました。Minecraftサーバ側のログを確認してください。"))).await
+        }
+    }
+
+    fn wrap_codeblock(str: &str) -> String {
+        format!("```\n{str}\n```")
     }
 }
