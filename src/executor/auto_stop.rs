@@ -25,17 +25,17 @@ impl PlayerNotifier {
 
     /// Increment the player count.
     pub fn join(&self) -> PlayerNotifierResult {
-        PlayerNotifier::notifier_err_from(self.0.send(PlayerNotification::Join))
+        Self::notifier_err_from(self.0.send(PlayerNotification::Join))
     }
 
     /// Decrement the player count.
     pub fn leave(&self) -> PlayerNotifierResult {
-        PlayerNotifier::notifier_err_from(self.0.send(PlayerNotification::Leave))
+        Self::notifier_err_from(self.0.send(PlayerNotification::Leave))
     }
 
     /// Start watching player joining/leaving.
     pub fn start(&self) -> PlayerNotifierResult {
-        PlayerNotifier::notifier_err_from(self.0.send(PlayerNotification::Start))
+        Self::notifier_err_from(self.0.send(PlayerNotification::Start))
     }
 }
 
