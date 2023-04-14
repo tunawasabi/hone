@@ -133,7 +133,7 @@ pub async fn mcstart(handler: &Handler) {
                     Exit => {
                         println!("サーバが停止しました。");
 
-                        let log_thread = log_thread.lock().await;
+                        let mut log_thread = log_thread.lock().await;
 
                         if let Some(ref log_thread) = *log_thread {
                             if let Ok(Channel::Guild(channel)) =
@@ -152,6 +152,7 @@ pub async fn mcstart(handler: &Handler) {
                             }
                         }
 
+                        *log_thread = None;
                         MessageSender::send("終了しました", &http, channel).await;
                     }
                     Done => {
