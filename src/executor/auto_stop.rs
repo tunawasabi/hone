@@ -25,21 +25,23 @@ impl PlayerNotifier {
 
     /// Increment the player count.
     pub fn join(&self) -> PlayerNotifierResult {
-        PlayerNotifier::notifier_err_from(self.0.send(PlayerNotification::Join))
+        Self::notifier_err_from(self.0.send(PlayerNotification::Join))
     }
 
     /// Decrement the player count.
     pub fn leave(&self) -> PlayerNotifierResult {
-        PlayerNotifier::notifier_err_from(self.0.send(PlayerNotification::Leave))
+        Self::notifier_err_from(self.0.send(PlayerNotification::Leave))
     }
 
     /// Start watching player joining/leaving.
     pub fn start(&self) -> PlayerNotifierResult {
-        PlayerNotifier::notifier_err_from(self.0.send(PlayerNotification::Start))
+        Self::notifier_err_from(self.0.send(PlayerNotification::Start))
     }
 }
 
 pub fn auto_stop_inspect(stdin: Sender<String>, sec: u64) -> PlayerNotifier {
+    use PlayerNotification::*;
+
     let (tx, rx) = channel();
 
     thread::spawn(move || {
@@ -51,10 +53,9 @@ pub fn auto_stop_inspect(stdin: Sender<String>, sec: u64) -> PlayerNotifier {
                 Ok(v) => {
                     // メッセージが送信された時点でサーバは開始されていると判断する
                     watching = true;
-
                     match v {
-                        PlayerNotification::Join => players += 1,
-                        PlayerNotification::Leave => players -= 1,
+                        Join => players += 1,
+                        Leave => players -= 1,
                         _ => {}
                     };
 

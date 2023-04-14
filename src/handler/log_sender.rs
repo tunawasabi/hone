@@ -16,7 +16,7 @@ pub struct LogSender {
 }
 
 impl LogSender {
-    pub fn new(channel_id: ChannelId, http: Arc<Http>) -> LogSender {
+    pub fn new(channel_id: ChannelId, http: Arc<Http>) -> Self {
         let (sender, rx) = sync_channel::<String>(MESSAGE_NUMBER_THRESHOLD);
 
         thread::spawn(move || {
@@ -49,10 +49,7 @@ impl LogSender {
                     };
 
                     if send_flag {
-                        if LogSender::internal_say(&buf, &http, channel_id)
-                            .await
-                            .is_err()
-                        {
+                        if Self::internal_say(&buf, &http, channel_id).await.is_err() {
                             break;
                         };
 
@@ -63,7 +60,7 @@ impl LogSender {
             });
         });
 
-        LogSender { sender, channel_id }
+        Self { sender, channel_id }
     }
 
     /// Send a message to the buffer.
@@ -82,10 +79,10 @@ impl LogSender {
         let messages = messages.concat();
 
         if messages.len() <= DISCORD_MESSAGE_LENGTH_LIMIT {
-            thread.say(http, LogSender::wrap_codeblock(&messages)).await
+            thread.say(http, Self::wrap_codeblock(&messages)).await
         } else {
             let messages = &messages[..DISCORD_MESSAGE_LENGTH_LIMIT];
-            thread.say(http, LogSender::wrap_codeblock(&format!("{messages}……\n\n出力が長いため、省略されました。Minecraftサーバ側のログを確認してください。"))).await
+            thread.say(http, Self::wrap_codeblock(&format!("{messages}……\n\n出力が長いため、省略されました。Minecraftサーバ側のログを確認してください。"))).await
         }
     }
 
