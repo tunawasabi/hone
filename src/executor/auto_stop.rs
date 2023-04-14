@@ -40,6 +40,8 @@ impl PlayerNotifier {
 }
 
 pub fn auto_stop_inspect(stdin: Sender<String>, sec: u64) -> PlayerNotifier {
+    use PlayerNotification::*;
+
     let (tx, rx) = channel();
 
     thread::spawn(move || {
@@ -51,10 +53,9 @@ pub fn auto_stop_inspect(stdin: Sender<String>, sec: u64) -> PlayerNotifier {
                 Ok(v) => {
                     // メッセージが送信された時点でサーバは開始されていると判断する
                     watching = true;
-
                     match v {
-                        PlayerNotification::Join => players += 1,
-                        PlayerNotification::Leave => players -= 1,
+                        Join => players += 1,
+                        Leave => players -= 1,
                         _ => {}
                     };
 

@@ -126,9 +126,11 @@ pub async fn mcstart(handler: &Handler) {
             .unwrap();
 
         rt.block_on(async {
+            use ServerMessage::*;
+
             for v in rx {
                 match v {
-                    ServerMessage::Exit => {
+                    Exit => {
                         println!("サーバが停止しました。");
 
                         let log_thread = log_thread.lock().await;
@@ -152,7 +154,7 @@ pub async fn mcstart(handler: &Handler) {
 
                         MessageSender::send("終了しました", &http, channel).await;
                     }
-                    ServerMessage::Done => {
+                    Done => {
                         MessageSender::send(
                             "サーバが起動しました！サーバログをスレッドから確認できます。",
                             &http,
@@ -178,7 +180,7 @@ pub async fn mcstart(handler: &Handler) {
                             player_notifier.start().unwrap();
                         }
                     }
-                    ServerMessage::Info(message) => {
+                    Info(message) => {
                         if let Some(ref player_notifier) = player_notifier {
                             if message.contains("joined the game") {
                                 player_notifier.join().ok();
@@ -193,7 +195,7 @@ pub async fn mcstart(handler: &Handler) {
                             v.say(message).ok();
                         }
                     }
-                    ServerMessage::Error(e) => {
+                    Error(e) => {
                         MessageSender::send(
                             format!("エラーが発生しました:\n```{}\n```", e),
                             &http,
