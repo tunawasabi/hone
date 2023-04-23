@@ -1,6 +1,5 @@
 use serde_derive::Deserialize;
 use std::fs;
-use toml;
 
 pub fn read_config() -> Result<Config, String> {
     let config = match fs::read_to_string("config.toml") {

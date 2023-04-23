@@ -3,7 +3,6 @@ use super::Handler;
 use super::MessageSender;
 use crate::executor;
 use crate::types::ServerMessage;
-use chrono;
 use serenity::model::channel::Channel;
 use serenity::model::prelude::ChannelId;
 use std::process::ChildStdin;
@@ -15,7 +14,7 @@ const RUNNING_INDICATER: &str = "[🏃稼働中]";
 const LOG_INDICATER: &str = "🗒️";
 
 pub fn parse_command(message: &str) -> Option<Vec<&str>> {
-    if message.len() <= 1 || !message.starts_with("!") {
+    if message.len() <= 1 || !message.starts_with('!') {
         return None;
     }
 
@@ -214,7 +213,7 @@ pub async fn mcstart(handler: &Handler) {
 
 /// Discordで送信されたコマンドをMinecraftサーバに送信します。
 pub async fn send_command_to_server(handler: &Handler, args: Vec<&str>) {
-    if args.len() == 0 {
+    if args.is_empty() {
         handler.send_message("引数を入力して下さい！").await.ok();
         return;
     }
