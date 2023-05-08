@@ -15,7 +15,7 @@ impl StdinSender {
         thread::spawn(move || {
             for v in receiver {
                 // write_allでコマンドを実行させるために最後に改行を加える
-                if let Err(_) = self.stdin.write_all(format!("{}\n", v).as_bytes()) {
+                if self.stdin.write_all(format!("{}\n", v).as_bytes()).is_err() {
                     break;
                 };
             }
