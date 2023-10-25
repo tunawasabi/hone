@@ -1,18 +1,6 @@
 use serde_derive::Deserialize;
 use std::fs;
 
-pub fn read_config() -> Result<Config, String> {
-    let config = match fs::read_to_string("config.toml") {
-        Ok(v) => v,
-        Err(err) => return Err(format!("設定ファイルを開くことができませんでした: {}", err)),
-    };
-
-    match toml::from_str::<Config>(&config) {
-        Ok(config) => Ok(config),
-        Err(err) => Err(format!("設定に誤りがあります: {}", err)),
-    }
-}
-
 #[derive(Deserialize, Clone)]
 pub struct Config {
     pub client: Client,
@@ -45,4 +33,18 @@ pub struct Server {
     pub jar_file: String,
     pub auto_stop: bool,
     pub memory: String,
+}
+
+impl Config {
+    pub fn read_from(path: &str) -> Result<Config, String> {
+        let config = match fs::read_to_string(path) {
+            Ok(v) => v,
+            Err(err) => return Err(format!("設定ファイルを開くことができませんでした: {}", err)),
+        };
+
+        match toml::from_str::<Config>(&config) {
+            Ok(config) => Ok(config),
+            Err(err) => Err(format!("設定に誤りがあります: {}", err)),
+        }
+    }
 }
