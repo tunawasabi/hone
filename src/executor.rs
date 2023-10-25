@@ -20,13 +20,13 @@ pub use self::not_windows::*;
 mod auto_stop;
 pub use auto_stop::*;
 
-pub struct MinecraftServerBuilder {
+pub struct ServerBuilder {
     jar_file: Option<String>,
     work_dir: Option<String>,
     memory: Option<String>,
 }
 
-pub struct MinecraftServer {
+pub struct Server {
     #[allow(dead_code)]
     process: Child,
     pub stdin: ChildStdin,
@@ -34,7 +34,7 @@ pub struct MinecraftServer {
     pub stderr: ChildStderr,
 }
 
-impl MinecraftServerBuilder {
+impl ServerBuilder {
     pub fn new() -> Self {
         Self {
             jar_file: None,
@@ -58,14 +58,14 @@ impl MinecraftServerBuilder {
         self
     }
 
-    pub fn build(self) -> io::Result<MinecraftServer> {
+    pub fn build(self) -> io::Result<Server> {
         let jar_file = self.jar_file.expect("jar_file is not set");
         let work_dir = self.work_dir.expect("work_dir is not set");
         let memory = self.memory.expect("memory is not set");
 
         let mut child_proc = mcserver_new(&jar_file, &work_dir, &memory)?;
 
-        Ok(MinecraftServer {
+        Ok(Server {
             stdin: child_proc.stdin.take().unwrap(),
             stdout: child_proc.stdout.take().unwrap(),
             stderr: child_proc.stderr.take().unwrap(),

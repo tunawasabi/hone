@@ -1,7 +1,7 @@
 use super::log_sender::LogSender;
 use super::Handler;
 use super::MessageSender;
-use crate::executor::{auto_stop_inspect, mcsv, MinecraftServerBuilder};
+use crate::executor::{auto_stop_inspect, mcsv, ServerBuilder};
 use crate::types::ServerMessage;
 use serenity::model::channel::Channel;
 use serenity::model::prelude::ChannelId;
@@ -62,7 +62,7 @@ pub async fn mcstart(handler: &Handler) {
     thread::spawn(move || {
         let server_config = config.server;
 
-        let Ok(server_thread) = MinecraftServerBuilder::new()
+        let Ok(server_thread) = ServerBuilder::new()
             .jar_file(&server_config.jar_file)
             .work_dir(&server_config.work_dir)
             .memory(&server_config.memory)
