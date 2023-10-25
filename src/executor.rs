@@ -2,9 +2,7 @@ use crate::types::ServerMessage;
 use std::io;
 use std::io::BufRead;
 use std::io::BufReader;
-use std::process::ChildStderr;
-use std::process::ChildStdout;
-use std::process::{Child, Stdio};
+use std::process::{Child, ChildStderr, ChildStdin, ChildStdout, Stdio};
 use std::sync::mpsc;
 use std::thread;
 
@@ -22,8 +20,62 @@ pub use self::not_windows::*;
 mod auto_stop;
 pub use auto_stop::*;
 
+pub struct ServerBuilder {
+    jar_file: Option<String>,
+    work_dir: Option<String>,
+    memory: Option<String>,
+}
+
+pub struct Server {
+    #[allow(dead_code)]
+    process: Child,
+    pub stdin: ChildStdin,
+    pub stdout: ChildStdout,
+    pub stderr: ChildStderr,
+}
+
+impl ServerBuilder {
+    pub fn new() -> Self {
+        Self {
+            jar_file: None,
+            work_dir: None,
+            memory: None,
+        }
+    }
+
+    pub fn jar_file(mut self, jar_file: &str) -> Self {
+        self.jar_file = Some(jar_file.to_string());
+        self
+    }
+
+    pub fn work_dir(mut self, work_dir: &str) -> Self {
+        self.work_dir = Some(work_dir.to_string());
+        self
+    }
+
+    pub fn memory(mut self, memory: &str) -> Self {
+        self.memory = Some(memory.to_string());
+        self
+    }
+
+    pub fn build(self) -> io::Result<Server> {
+        let jar_file = self.jar_file.expect("jar_file is not set");
+        let work_dir = self.work_dir.expect("work_dir is not set");
+        let memory = self.memory.expect("memory is not set");
+
+        let mut child_proc = mcserver_new(&jar_file, &work_dir, &memory)?;
+
+        Ok(Server {
+            stdin: child_proc.stdin.take().unwrap(),
+            stdout: child_proc.stdout.take().unwrap(),
+            stderr: child_proc.stderr.take().unwrap(),
+            process: child_proc,
+        })
+    }
+}
+
 /// Minecraftサーバを起動します。
-pub fn mcserver_new(jar_file: &str, work_dir: &str, memory: &str) -> io::Result<Child> {
+fn mcserver_new(jar_file: &str, work_dir: &str, memory: &str) -> io::Result<Child> {
     self::command_new("java")
         .current_dir(work_dir)
         .arg(format!("-Xmx{}", memory))

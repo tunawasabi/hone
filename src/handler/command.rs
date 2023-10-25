@@ -1,7 +1,7 @@
 use super::log_sender::LogSender;
 use super::Handler;
 use super::MessageSender;
-use crate::executor;
+use crate::executor::{auto_stop_inspect, mcsv, ServerBuilder};
 use crate::types::ServerMessage;
 use serenity::model::channel::Channel;
 use serenity::model::prelude::ChannelId;
@@ -62,34 +62,24 @@ pub async fn mcstart(handler: &Handler) {
     thread::spawn(move || {
         let server_config = config.server;
 
-        // Minecraft サーバを起動する
-        let mut server_thread = match executor::mcserver_new(
-            &server_config.jar_file,
-            &server_config.work_dir,
-            &server_config.memory,
-        ) {
-            Ok(child) => child,
-            Err(err) => {
-                thread_tx
-                    .send(ServerMessage::Error(format!(
-                        "Minecraftサーバのプロセスを起動できませんでした: {}",
-                        err
-                    )))
-                    .unwrap();
-                return;
-            }
+        let Ok(server_thread) = ServerBuilder::new()
+            .jar_file(&server_config.jar_file)
+            .work_dir(&server_config.work_dir)
+            .memory(&server_config.memory)
+            .build()
+        else {
+            thread_tx
+                .send(ServerMessage::Error(
+                    "Minecraftサーバのプロセスを起動できませんでした".to_string(),
+                ))
+                .unwrap();
+            return;
         };
 
-        thread_tx2
-            .send(server_thread.stdin.take().unwrap()) // stdinは必ず存在するのでunwrapしてもよい
-            .unwrap();
+        thread_tx2.send(server_thread.stdin).unwrap();
 
         // サーバログを表示して、別スレッドに送信する
-        crate::executor::server_log_sender(
-            &thread_tx,
-            server_thread.stdout.take().unwrap(), // stdoutは必ず存在するのでunwrapしてもよい
-            server_thread.stderr.take().unwrap(),
-        );
+        crate::executor::server_log_sender(&thread_tx, server_thread.stdout, server_thread.stderr);
 
         #[cfg(target_os = "windows")]
         executor::close_port(server_config.port);
@@ -99,14 +89,14 @@ pub async fn mcstart(handler: &Handler) {
 
     // Minecraftサーバへの標準入力 (stdin) を取得する
     // stdinを取得するまで次に進まない
-    let listner = executor::mcsv::StdinSender::new(rx2.recv().unwrap());
+    let listner = mcsv::StdinSender::new(rx2.recv().unwrap());
     let command_sender = listner.listen();
     let mut stdin = handler.thread_stdin.lock().await;
     *stdin = Some(command_sender.clone());
 
     // 自動停止システムを起動
     let player_notifier = if handler.config.server.auto_stop {
-        Some(executor::auto_stop_inspect(command_sender, 180))
+        Some(auto_stop_inspect(command_sender, 180))
     } else {
         None
     };

@@ -3,12 +3,16 @@ use std::path::Path;
 use std::process::exit;
 
 mod config;
+use config::Config;
+
 mod executor;
 mod handler;
+use handler::Handler;
+
 mod types;
 
 pub async fn start() {
-    let config = config::read_config().unwrap_or_else(|err| {
+    let config = Config::read_from("config.toml").unwrap_or_else(|err| {
         println!("{}", err);
         exit(-1);
     });
@@ -33,7 +37,7 @@ pub async fn start() {
         | GatewayIntents::MESSAGE_CONTENT;
 
     let mut client = Client::builder(&config.client.secret, intents)
-        .event_handler(handler::Handler::new(config))
+        .event_handler(Handler::new(config))
         .await
         .expect("Err creating client");
 
