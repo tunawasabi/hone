@@ -1,5 +1,6 @@
 use self::command::*;
 use crate::config::Config;
+use crate::save::backup::save_backup;
 use serenity::http::Http;
 use serenity::model::channel::Message;
 use serenity::model::gateway::Ready;
@@ -91,6 +92,8 @@ impl EventHandler for Handler {
             "mcend" => send_stop_to_server(self).await,
             // クライアント停止
             "mcsvend" => mcsvend(self).await,
+            // バックアップ
+            "mcbackup" => save_backup(self.config.backup.clone(), self.config.server.clone()),
             _ => {
                 self.send_message("存在しないコマンドです。").await.ok();
             }

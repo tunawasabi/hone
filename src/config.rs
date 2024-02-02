@@ -6,6 +6,7 @@ pub struct Config {
     pub client: Client,
     pub permission: Permission,
     pub server: Server,
+    pub backup: Option<Backup>,
 }
 
 /// Discordクライアントの設定
@@ -33,6 +34,12 @@ pub struct Server {
     pub jar_file: String,
     pub auto_stop: bool,
     pub memory: String,
+}
+
+/// バックアップ設定
+#[derive(Deserialize, Clone)]
+pub struct Backup {
+    pub output_dir: String,
 }
 
 impl Config {
