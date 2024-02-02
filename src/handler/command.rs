@@ -51,8 +51,9 @@ pub async fn mcstart(handler: &Handler) {
         *thread_id = Some(LogSender::new(thread.id, Arc::clone(&handler.http)));
     }
 
+    // FIXME: Windows限定機能の整理
     #[cfg(target_os = "windows")]
-    executor::open_port(handler.config.server.port);
+    crate::executor::open_port(handler.config.server.port);
 
     let config = handler.config.clone();
     let (thread_tx, rx) = mpsc::channel::<ServerMessage>();
@@ -81,8 +82,9 @@ pub async fn mcstart(handler: &Handler) {
         // サーバログを表示して、別スレッドに送信する
         crate::executor::server_log_sender(&thread_tx, server_thread.stdout, server_thread.stderr);
 
+        // FIXME: Windows限定機能の整理
         #[cfg(target_os = "windows")]
-        executor::close_port(server_config.port);
+        crate::executor::close_port(server_config.port);
 
         thread_tx.send(ServerMessage::Exit).unwrap();
     });
