@@ -1,9 +1,9 @@
-use crate::config::{Backup, Server};
+use crate::config::{BackupConfig, ServerConfig};
 use std::{fs, io, path::Path};
 use zip::ZipWriter;
 use zip_extensions::ZipWriterExtensions;
 
-pub fn save_backup(backup_config: Option<Backup>, server_config: Server) {
+pub fn save_backup(backup_config: Option<BackupConfig>, server_config: ServerConfig) {
     let Some(config) = backup_config else {
         return;
     };

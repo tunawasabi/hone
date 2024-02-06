@@ -3,22 +3,22 @@ use std::fs;
 
 #[derive(Deserialize, Clone)]
 pub struct Config {
-    pub client: Client,
-    pub permission: Permission,
-    pub server: Server,
-    pub backup: Option<Backup>,
+    pub client: ClientConfig,
+    pub permission: PermissionConfig,
+    pub server: ServerConfig,
+    pub backup: Option<BackupConfig>,
 }
 
 /// Discordクライアントの設定
 #[derive(Deserialize, Clone)]
-pub struct Client {
+pub struct ClientConfig {
     pub secret: String,
     pub show_public_ip: Option<bool>,
 }
 
 /// 権限の設定
 #[derive(Deserialize, Clone)]
-pub struct Permission {
+pub struct PermissionConfig {
     /// コマンドを送信できるチャンネル
     pub channel_id: u64,
 
@@ -28,7 +28,7 @@ pub struct Permission {
 
 /// Minecraftサーバの設定
 #[derive(Deserialize, Clone)]
-pub struct Server {
+pub struct ServerConfig {
     pub work_dir: String,
     pub port: u16,
     pub jar_file: String,
@@ -38,7 +38,7 @@ pub struct Server {
 
 /// バックアップ設定
 #[derive(Deserialize, Clone)]
-pub struct Backup {
+pub struct BackupConfig {
     pub output_dir: String,
 }
 
