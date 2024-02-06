@@ -9,7 +9,7 @@ edition = "2021"
 serde = "1.0.196"
 serde_derive = "1.0.196"
 toml = "0.8.9"
-serenity = { version = "0.11", default-features = false, features = [
+serenity = { version = "0.12", default-features = false, features = [
     "client",
     "gateway",
     "rustls_backend",

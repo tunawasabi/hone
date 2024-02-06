@@ -36,7 +36,7 @@ impl Handler {
     }
 
     async fn send_message(&self, message: impl AsRef<str>) -> Result<Message, SerenityError> {
-        let channel = ChannelId(self.config.permission.channel_id);
+        let channel = ChannelId::new(self.config.permission.channel_id);
         channel.say(&self.http, message.as_ref()).await
     }
 
@@ -71,8 +71,8 @@ impl MessageSender {
 #[serenity::async_trait]
 impl EventHandler for Handler {
     async fn message(&self, _: Context, msg: Message) {
-        if !self.is_allowed_user(*msg.author.id.as_u64())
-            || !self.is_allowed_channel(*msg.channel_id.as_u64())
+        if !self.is_allowed_user(msg.author.id.get())
+            || !self.is_allowed_channel(msg.channel_id.get())
         {
             return;
         }
@@ -103,7 +103,7 @@ impl EventHandler for Handler {
     async fn ready(&self, ctx: Context, ready: Ready) {
         let Ok(channel) = ctx
             .http
-            .get_channel(self.config.permission.channel_id)
+            .get_channel(ChannelId::new(self.config.permission.channel_id))
             .await
         else {
             println!("設定で指定されているチャンネルが見つかりません。permisson.channel_id の値を修正してください。");

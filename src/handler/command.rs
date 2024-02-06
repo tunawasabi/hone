@@ -3,6 +3,8 @@ use super::Handler;
 use super::MessageSender;
 use crate::executor::{auto_stop_inspect, mcsv, ServerBuilder};
 use crate::types::ServerMessage;
+use serenity::builder::CreateThread;
+use serenity::builder::EditThread;
 use serenity::model::channel::Channel;
 use serenity::model::prelude::ChannelId;
 use std::process::ChildStdin;
@@ -29,26 +31,25 @@ pub async fn mcstart(handler: &Handler) {
         handler.send_message("すでに起動しています！").await.ok();
         return;
     }
-
-    // サーバログを出力するスレッドを作成する
+    // Create a thread to output server logs
     {
         let start_message = handler.send_message("開始しています……").await.unwrap();
 
-        let thread = start_message
+        let log_thread_name = format!(
+            "{RUNNING_INDICATER} Minecraftサーバログ {}",
+            chrono::Local::now().format("%Y/%m/%d %H:%M")
+        );
+        let log_thread_builder = CreateThread::new(log_thread_name)
+            .auto_archive_duration(serenity::all::AutoArchiveDuration::OneHour);
+
+        let log_thread = start_message
             .channel_id
-            .create_public_thread(&handler.http, start_message.id, |v| {
-                v.name(format!(
-                    "{} Minecraftサーバログ {}",
-                    RUNNING_INDICATER,
-                    chrono::Local::now().format("%Y/%m/%d %H:%M")
-                ))
-                .auto_archive_duration(60)
-            })
+            .create_thread_from_message(&handler.http, start_message.id, log_thread_builder)
             .await
             .unwrap();
 
         let mut thread_id = handler.log_thread.lock().await;
-        *thread_id = Some(LogSender::new(thread.id, Arc::clone(&handler.http)));
+        *thread_id = Some(LogSender::new(log_thread.id, Arc::clone(&handler.http)));
     }
 
     // FIXME: Windows限定機能の整理
@@ -104,7 +105,7 @@ pub async fn mcstart(handler: &Handler) {
     };
 
     let http = Arc::clone(&handler.http);
-    let channel = ChannelId(handler.config.permission.channel_id);
+    let channel = ChannelId::new(handler.config.permission.channel_id);
     let show_public_ip = handler.config.client.show_public_ip.unwrap_or(false);
     let stdin = Arc::clone(&handler.thread_stdin);
     let log_thread = Arc::clone(&handler.log_thread);
@@ -127,19 +128,15 @@ pub async fn mcstart(handler: &Handler) {
                         let mut log_thread = log_thread.lock().await;
 
                         if let Some(ref log_thread) = *log_thread {
-                            if let Ok(Channel::Guild(channel)) =
+                            if let Ok(Channel::Guild(mut channel)) =
                                 log_thread.channel_id.to_channel(&http).await
                             {
                                 let name = channel.name();
+                                let edit_thread_builder = EditThread::new()
+                                    .name(name.replace(RUNNING_INDICATER, LOG_INDICATER))
+                                    .archived(true);
 
-                                channel
-                                    .edit_thread(&http, |thread| {
-                                        thread
-                                            .name(name.replace(RUNNING_INDICATER, LOG_INDICATER))
-                                            .archived(true)
-                                    })
-                                    .await
-                                    .ok();
+                                channel.edit_thread(&http, edit_thread_builder).await.ok();
                             }
                         }
 
