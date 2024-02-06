@@ -18,17 +18,14 @@ pub async fn start() {
         exit(-1);
     });
 
-    if !Path::new(&format!(
-        "{}\\{}",
-        config.server.work_dir, config.server.jar_file
-    ))
-    .exists()
-    {
+    let server_path = Path::new(&config.server.work_dir).join(&config.server.jar_file);
+
+    if !server_path.exists() {
         let current = std::env::current_dir().unwrap();
         let current = current.to_str().unwrap();
         println!(
-            "サーバが存在しません。{}\\{}\\{}に置いてください",
-            current, config.server.work_dir, config.server.jar_file
+            "サーバが存在しません。{}に置いてください",
+            Path::new(current).join(server_path).display()
         );
         exit(-1);
     }
