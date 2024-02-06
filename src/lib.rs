@@ -5,8 +5,8 @@ use std::process::exit;
 mod config;
 use config::Config;
 
-mod executor;
 mod handler;
+mod server;
 use handler::Handler;
 
 mod save;

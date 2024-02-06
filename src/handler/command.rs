@@ -1,7 +1,7 @@
 use super::log_sender::LogSender;
 use super::Handler;
 use super::MessageSender;
-use crate::executor::{auto_stop_inspect, mcsv, ServerBuilder};
+use crate::server::{auto_stop_inspect, mcsv, ServerBuilder};
 use crate::types::ServerMessage;
 use serenity::builder::CreateThread;
 use serenity::builder::EditThread;
@@ -54,7 +54,7 @@ pub async fn mcstart(handler: &Handler) {
 
     // FIXME: Windows限定機能の整理
     #[cfg(target_os = "windows")]
-    crate::executor::open_port(handler.config.server.port);
+    crate::server::open_port(handler.config.server.port);
 
     let config = handler.config.clone();
     let (thread_tx, rx) = mpsc::channel::<ServerMessage>();
@@ -81,11 +81,11 @@ pub async fn mcstart(handler: &Handler) {
         thread_tx2.send(server_thread.stdin).unwrap();
 
         // サーバログを表示して、別スレッドに送信する
-        crate::executor::server_log_sender(&thread_tx, server_thread.stdout, server_thread.stderr);
+        crate::server::server_log_sender(&thread_tx, server_thread.stdout, server_thread.stderr);
 
         // FIXME: Windows限定機能の整理
         #[cfg(target_os = "windows")]
-        crate::executor::close_port(server_config.port);
+        crate::server::close_port(server_config.port);
 
         thread_tx.send(ServerMessage::Exit).unwrap();
     });
