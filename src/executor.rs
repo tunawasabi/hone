@@ -76,17 +76,18 @@ impl ServerBuilder {
 
 /// Minecraftサーバを起動します。
 fn mcserver_new(jar_file: &str, work_dir: &str, memory: &str) -> io::Result<Child> {
-    self::command_new("java")
-        .current_dir(work_dir)
-        .arg(format!("-Xmx{}", memory))
-        .arg(format!("-Xms{}", memory))
-        .arg("-jar")
-        .arg(jar_file)
-        .arg("nogui")
+    let xmx = &format!("-Xmx{}", memory);
+    let xms = &format!("-Xms{}", memory);
+
+    let java_command = ["java", xmx, xms, "-jar", jar_file, "nogui"];
+    let mut cmd = self::command_new(&java_command.join(" "));
+
+    cmd.current_dir(work_dir)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
+        .stderr(Stdio::piped());
+
+    cmd.spawn()
 }
 
 pub fn server_log_sender(
