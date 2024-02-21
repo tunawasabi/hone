@@ -7,15 +7,9 @@ use std::sync::mpsc;
 use std::thread;
 
 pub mod mcsv;
-#[cfg(target_os = "windows")]
-mod windows;
-#[cfg(target_os = "windows")]
-pub use self::windows::*;
 
-#[cfg(not(target_os = "windows"))]
-mod not_windows;
-#[cfg(not(target_os = "windows"))]
-pub use self::not_windows::*;
+mod create;
+pub use create::*;
 
 mod auto_stop;
 pub use auto_stop::*;
