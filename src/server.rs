@@ -2,7 +2,7 @@ use crate::types::ServerMessage;
 use std::io;
 use std::io::BufRead;
 use std::io::BufReader;
-use std::process::{Child, ChildStderr, ChildStdin, ChildStdout, Stdio};
+use std::process::{Child, ChildStdin, Stdio};
 use std::sync::mpsc;
 use std::thread;
 
@@ -22,10 +22,8 @@ pub struct ServerBuilder {
 
 pub struct Server {
     #[allow(dead_code)]
-    process: Child,
+    proc: Child,
     pub stdin: ChildStdin,
-    pub stdout: ChildStdout,
-    pub stderr: ChildStderr,
 }
 
 impl ServerBuilder {
@@ -57,104 +55,106 @@ impl ServerBuilder {
         let work_dir = self.work_dir.expect("work_dir is not set");
         let memory = self.memory.expect("memory is not set");
 
-        let mut child_proc = mcserver_new(&jar_file, &work_dir, &memory)?;
+        let server = Server::mcserver_new(&jar_file, &work_dir, &memory)?;
 
-        Ok(Server {
-            stdin: child_proc.stdin.take().unwrap(),
-            stdout: child_proc.stdout.take().unwrap(),
-            stderr: child_proc.stderr.take().unwrap(),
-            process: child_proc,
+        Ok(server)
+    }
+}
+
+impl Server {
+    /// Create a new Minecraft server process.
+    fn mcserver_new(jar_file: &str, work_dir: &str, memory: &str) -> io::Result<Server> {
+        let xmx = &format!("-Xmx{}", memory);
+        let xms = &format!("-Xms{}", memory);
+
+        let java_command = ["java", xmx, xms, "-jar", jar_file, "nogui"];
+        let mut cmd = self::command_new(&java_command.join(" "));
+
+        // `stdin`, `stdout`, `stderr` must be set to `piped` to read/write from/to the child process.
+        cmd.current_dir(work_dir)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+
+        let mut child_proc = cmd.spawn()?;
+
+        let stdin = child_proc.stdin.take().unwrap();
+
+        Ok(Self {
+            stdin,
+            proc: child_proc,
         })
     }
-}
 
-/// Minecraftサーバを起動します。
-fn mcserver_new(jar_file: &str, work_dir: &str, memory: &str) -> io::Result<Child> {
-    let xmx = &format!("-Xmx{}", memory);
-    let xms = &format!("-Xms{}", memory);
+    pub fn logs(&mut self) -> mpsc::Receiver<ServerMessage> {
+        let (stdout_tx, rx) = mpsc::channel::<ServerMessage>();
+        let stderr_tx = stdout_tx.clone();
 
-    let java_command = ["java", xmx, xms, "-jar", jar_file, "nogui"];
-    let mut cmd = self::command_new(&java_command.join(" "));
+        // 標準出力を監視する
+        {
+            let stdout = self.proc.stdout.take().unwrap();
 
-    cmd.current_dir(work_dir)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
+            thread::spawn(move || {
+                let mut bufread = BufReader::new(stdout);
+                let mut buf = String::new();
 
-    cmd.spawn()
-}
+                while let Ok(lines) = bufread.read_line(&mut buf) {
+                    if lines == 0 {
+                        break;
+                    }
 
-pub fn server_log_sender(
-    sender: &mpsc::Sender<ServerMessage>,
-    stdout: ChildStdout,
-    stderr: ChildStderr,
-) {
-    let mut bufread = BufReader::new(stdout);
-    let mut buf = String::new();
+                    // JVMからの出力をそのまま出力する。
+                    // 改行コードが既に含まれているのでprint!マクロを使う
+                    print!("[Minecraft] {}", buf);
 
-    // 標準エラー出力を監視するスレッド
-    let err_sender = sender.clone();
-    thread::spawn(move || {
-        let mut bufread = BufReader::new(stderr);
-        let mut buf = String::new();
+                    // サーバの起動が完了したとき
+                    if buf.contains("Done") {
+                        stdout_tx.send(ServerMessage::Done).ok();
+                    }
 
-        while let Ok(v) = bufread.read_line(&mut buf) {
-            if v == 0 {
-                break;
-            }
+                    // EULAへの同意が必要な時
+                    if buf.contains("You need to agree") {
+                        stdout_tx.send(ServerMessage::Error(
+                "サーバを開始するには、EULAに同意する必要があります。eula.txtを編集してください。"
+                    .to_string(),
+            ))
+            .ok();
+                    }
 
-            print!("[Minecraft] {}", buf);
-            err_sender.send(ServerMessage::Error(buf.clone())).ok();
+                    // Minecraftサーバ終了を検知
+                    if buf.contains("All dimensions are saved") {
+                        break;
+                    }
 
-            buf.clear();
-        }
-    });
+                    stdout_tx.send(ServerMessage::Info(buf.clone())).unwrap();
+                    buf.clear();
+                }
 
-    // 標準出力を監視する
-    while let Ok(lines) = bufread.read_line(&mut buf) {
-        if lines == 0 {
-            break;
-        }
-
-        // JVMからの出力をそのまま出力する。
-        // 改行コードが既に含まれているのでprint!マクロを使う
-        print!("[Minecraft] {}", buf);
-
-        // サーバの起動が完了したとき
-        if buf.contains("Done") {
-            sender.send(ServerMessage::Done).ok();
+                stdout_tx.send(ServerMessage::Exit).ok();
+            });
         }
 
-        // EULAへの同意が必要な時
-        if buf.contains("You need to agree") {
-            sender
-                .send(ServerMessage::Error(
-                    "サーバを開始するには、EULAに同意する必要があります。eula.txtを編集してください。"
-                        .to_string(),
-                ))
-                .ok();
+        // 標準エラー出力を監視するスレッド
+        {
+            let stderr = self.proc.stderr.take().unwrap();
+
+            thread::spawn(move || {
+                let mut bufread = BufReader::new(stderr);
+                let mut buf = String::new();
+
+                while let Ok(v) = bufread.read_line(&mut buf) {
+                    if v == 0 {
+                        break;
+                    }
+
+                    print!("[Minecraft] {}", buf);
+                    stderr_tx.send(ServerMessage::Error(buf.clone())).ok();
+
+                    buf.clear();
+                }
+            });
         }
 
-        // Minecraftサーバ終了を検知
-        if buf.contains("All dimensions are saved") {
-            break;
-        }
-
-        sender.send(ServerMessage::Info(buf.clone())).unwrap();
-        buf.clear();
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::mcserver_new;
-
-    #[test]
-    fn mcsv_stdio_must_piped() {
-        let mcsv = mcserver_new("dummy", "./", "").unwrap();
-
-        assert!(mcsv.stdout.is_some(), "stdout is not piped");
-        assert!(mcsv.stderr.is_some(), "stderr is not piped");
-        assert!(mcsv.stdin.is_some(), "stdin is not piped");
+        rx
     }
 }

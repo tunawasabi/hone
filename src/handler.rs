@@ -85,7 +85,7 @@ impl EventHandler for Handler {
 
         match command {
             // サーバ開始
-            "mcstart" => mcstart(self).await,
+            "mcstart" => self.mcstart().await,
             // コマンド送信
             "mcc" => send_command_to_server(self, args).await,
             // サーバ停止
