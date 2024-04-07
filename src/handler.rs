@@ -20,7 +20,7 @@ pub struct Handler {
     config: Config,
     http: Arc<Http>,
     thread_stdin: ArcMutex<Option<mpsc::Sender<String>>>,
-    log_thread: ArcMutex<Option<LogSender>>,
+    log_thread: ArcMutex<Option<LogSessionGuildChannel>>,
 }
 
 impl Handler {

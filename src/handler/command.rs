@@ -1,18 +1,11 @@
-use super::log_sender::LogSender;
+use super::log_sender::LogSessionGuildChannel;
 use super::Handler;
 use super::MessageSender;
 use crate::server::{auto_stop_inspect, mcsv, ServerBuilder};
 use crate::types::ServerMessage;
-use serenity::builder::CreateThread;
-use serenity::builder::EditThread;
-use serenity::model::channel::Channel;
 use serenity::model::prelude::ChannelId;
 use std::sync::Arc;
 use std::thread;
-
-// スレッド名の前につける稼働状況
-const RUNNING_INDICATER: &str = "[🏃稼働中]";
-const LOG_INDICATER: &str = "🗒️";
 
 pub fn parse_command(message: &str) -> Option<Vec<&str>> {
     if message.len() <= 1 || !message.starts_with('!') {
@@ -31,25 +24,14 @@ impl Handler {
             self.send_message("すでに起動しています！").await.ok();
             return;
         }
+
         // Create a thread to output server logs
         {
-            let start_message = self.send_message("開始しています……").await.unwrap();
+            let start_msg = self.send_message("開始しています……").await.unwrap();
 
-            let log_thread_name = format!(
-                "{RUNNING_INDICATER} Minecraftサーバログ {}",
-                chrono::Local::now().format("%Y/%m/%d %H:%M")
-            );
-            let log_thread_builder = CreateThread::new(log_thread_name)
-                .auto_archive_duration(serenity::all::AutoArchiveDuration::OneHour);
-
-            let log_thread = start_message
-                .channel_id
-                .create_thread_from_message(&self.http, start_message.id, log_thread_builder)
-                .await
-                .unwrap();
-
-            let mut thread_id = self.log_thread.lock().await;
-            *thread_id = Some(LogSender::new(log_thread.id, Arc::clone(&self.http)));
+            let mut log_thread = self.log_thread.lock().await;
+            *log_thread =
+                Some(LogSessionGuildChannel::new(start_msg, Arc::clone(&self.http)).await);
         }
 
         // FIXME: Windows限定機能の整理
@@ -118,20 +100,10 @@ impl Handler {
 
                             let mut log_thread = log_thread.lock().await;
 
-                            if let Some(ref log_thread) = *log_thread {
-                                if let Ok(Channel::Guild(mut channel)) =
-                                    log_thread.channel_id.to_channel(&http).await
-                                {
-                                    let name = channel.name();
-                                    let edit_thread_builder = EditThread::new()
-                                        .name(name.replace(RUNNING_INDICATER, LOG_INDICATER))
-                                        .archived(true);
-
-                                    channel.edit_thread(&http, edit_thread_builder).await.ok();
-                                }
+                            if let Some(ref mut log_thread) = *log_thread {
+                                log_thread.archive(&http).await.ok();
                             }
 
-                            *log_thread = None;
                             MessageSender::send("終了しました", &http, channel).await;
                         }
                         Done => {

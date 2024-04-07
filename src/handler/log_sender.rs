@@ -1,8 +1,10 @@
 use std::sync::Arc;
 use std::thread;
 
+use serenity::all::{CreateThread, EditThread, GuildChannel, Message};
 use serenity::http::Http;
 use serenity::model::prelude::ChannelId;
+use serenity::Result;
 use std::sync::mpsc::{sync_channel, RecvTimeoutError::*, SyncSender};
 use std::time::Duration;
 
@@ -10,14 +12,31 @@ const MESSAGE_INTERVAL: Duration = Duration::from_millis(800);
 const MESSAGE_NUMBER_THRESHOLD: usize = 10;
 const DISCORD_MESSAGE_LENGTH_LIMIT: usize = 900;
 
-pub struct LogSender {
-    pub channel_id: ChannelId,
+// スレッド名の前につける稼働状況
+const RUNNING_INDICATER: &str = "[🏃稼働中]";
+const LOG_INDICATER: &str = "🗒️";
+
+pub struct LogSessionGuildChannel {
+    channel: GuildChannel,
     sender: SyncSender<String>,
 }
 
-impl LogSender {
-    pub fn new(channel_id: ChannelId, http: Arc<Http>) -> Self {
+impl LogSessionGuildChannel {
+    pub async fn new(start_msg: Message, http: Arc<Http>) -> Self {
+        let log_thread_name = format!(
+            "{RUNNING_INDICATER} Minecraftサーバログ {}",
+            chrono::Local::now().format("%Y/%m/%d %H:%M")
+        );
+        let log_thread_builder = CreateThread::new(log_thread_name)
+            .auto_archive_duration(serenity::all::AutoArchiveDuration::OneHour);
+        let log_thread = start_msg
+            .channel_id
+            .create_thread_from_message(&http, start_msg.id, log_thread_builder)
+            .await
+            .unwrap();
+
         let (sender, rx) = sync_channel::<String>(MESSAGE_NUMBER_THRESHOLD);
+        let channel_id = log_thread.id;
 
         thread::spawn(move || {
             let rt = tokio::runtime::Builder::new_current_thread()
@@ -60,7 +79,10 @@ impl LogSender {
             });
         });
 
-        Self { sender, channel_id }
+        Self {
+            sender,
+            channel: log_thread,
+        }
     }
 
     /// Send a message to the buffer.
@@ -69,6 +91,15 @@ impl LogSender {
     /// no message sent within `MESSAGE_INTERVAL`, send the discord thread the messages.
     pub fn say(&self, message: String) -> Result<(), ()> {
         self.sender.send(message).or(Err(()) as Result<(), ()>)
+    }
+
+    pub async fn archive(&mut self, http: &Http) -> Result<()> {
+        let name = self.channel.name();
+        let edit_thread_builder = EditThread::new()
+            .name(name.replace(RUNNING_INDICATER, LOG_INDICATER))
+            .archived(true);
+
+        self.channel.edit_thread(&http, edit_thread_builder).await
     }
 
     async fn internal_say(
