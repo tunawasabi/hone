@@ -1,7 +1,7 @@
 use super::log_sender::LogSessionGuildChannel;
 use super::Handler;
 use super::MessageSender;
-use crate::server::{auto_stop_inspect, mcsv, ServerBuilder};
+use crate::server::{auto_stop_inspect, stdin_sender::StdinSender, ServerBuilder};
 use crate::types::ServerMessage;
 use serenity::model::prelude::ChannelId;
 use std::sync::Arc;
@@ -66,7 +66,7 @@ impl Handler {
         };
 
         // Minecraftサーバへの標準入力 (stdin) を取得する
-        let listner = mcsv::StdinSender::new(server.stdin);
+        let listner = StdinSender::new(server.stdin);
         let command_sender = listner.listen();
         let mut stdin = self.thread_stdin.lock().await;
         *stdin = Some(command_sender.clone());

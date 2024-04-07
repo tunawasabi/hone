@@ -6,7 +6,7 @@ use std::process::{Child, ChildStdin, Stdio};
 use std::sync::mpsc;
 use std::thread;
 
-pub mod mcsv;
+pub mod stdin_sender;
 
 mod create;
 pub use create::*;
