@@ -572,6 +572,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "hone"
+version = "0.5.0"
+dependencies = [
+ "chrono",
+ "public-ip",
+ "serde",
+ "serde_derive",
+ "serenity",
+ "tokio",
+ "toml",
+ "zip",
+ "zip-extensions",
+]
+
+[[package]]
 name = "http"
 version = "0.2.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -790,21 +805,6 @@ name = "matches"
 version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2532096657941c2fea9c289d370a250971c689d4f143798ff67113ec042024a5"
-
-[[package]]
-name = "mcsv-handler-discord"
-version = "0.5.0"
-dependencies = [
- "chrono",
- "public-ip",
- "serde",
- "serde_derive",
- "serenity",
- "tokio",
- "toml",
- "zip",
- "zip-extensions",
-]
 
 [[package]]
 name = "memchr"

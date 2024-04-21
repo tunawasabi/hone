@@ -210,8 +210,12 @@ pub async fn send_stop_to_server(handler: &Handler) {
             }
             Err(err) => {
                 handler
-                    .send_message(format!("終了できませんでした。mcsv-handler-discordを再起動する必要があります。\n{}", err))
-                    .await.ok();
+                    .send_message(format!(
+                        "終了できませんでした。honeを再起動する必要があります。\n{}",
+                        err
+                    ))
+                    .await
+                    .ok();
             }
         };
     } else {
