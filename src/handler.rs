@@ -12,6 +12,7 @@ use std::sync::{mpsc, Arc};
 
 mod command;
 mod log_sender;
+mod observer;
 use log_sender::*;
 
 type ArcMutex<T> = Arc<Mutex<T>>;
