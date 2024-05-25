@@ -1,3 +1,4 @@
+use context::ConfigContext;
 use serenity::prelude::*;
 use std::path::Path;
 use std::process::exit;
@@ -9,6 +10,7 @@ mod handler;
 mod server;
 use handler::Handler;
 
+mod context;
 mod save;
 mod types;
 
@@ -17,6 +19,7 @@ pub async fn start() {
         println!("{}", err);
         exit(-1);
     });
+    ConfigContext::set(config.clone()).ok();
 
     let server_path = Path::new(&config.server.work_dir).join(&config.server.jar_file);
 

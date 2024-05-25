@@ -12,6 +12,7 @@ use std::sync::{mpsc, Arc};
 
 mod command;
 mod log_sender;
+mod observer;
 use log_sender::*;
 
 type ArcMutex<T> = Arc<Mutex<T>>;
@@ -52,19 +53,6 @@ impl Handler {
     #[inline]
     fn is_allowed_channel(&self, id: u64) -> bool {
         id == self.config.permission.channel_id
-    }
-}
-
-struct MessageSender;
-impl MessageSender {
-    async fn send(message: impl AsRef<str>, http: &Http, channel: ChannelId) -> Option<Message> {
-        match channel.say(http, message.as_ref()).await {
-            Ok(msg) => Some(msg),
-            Err(e) => {
-                println!("{}", e);
-                None
-            }
-        }
     }
 }
 

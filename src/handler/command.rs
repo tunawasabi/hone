@@ -1,11 +1,9 @@
 use super::log_sender::LogSessionGuildChannel;
+use super::observer::observe;
 use super::Handler;
-use super::MessageSender;
 use crate::server::{auto_stop_inspect, stdin_sender::StdinSender, ServerBuilder};
-use crate::types::ServerMessage;
 use serenity::model::prelude::ChannelId;
 use std::sync::Arc;
-use std::thread;
 
 pub fn parse_command(message: &str) -> Option<Vec<&str>> {
     if message.len() <= 1 || !message.starts_with('!') {
@@ -43,27 +41,25 @@ impl Handler {
         let channel = ChannelId::new(self.config.permission.channel_id);
 
         // Minecraft サーバスレッド
-        let Ok(server) = ServerBuilder::new()
+        let Ok(mut server) = ServerBuilder::new()
             .jar_file(&self.config.server.jar_file)
             .work_dir(&self.config.server.work_dir)
             .memory(&self.config.server.memory)
             .build()
         else {
-            MessageSender::send(
-                "Minecraftサーバのプロセスを起動できませんでした",
-                &self.http,
-                channel,
-            )
-            .await;
+            channel
+                .say(
+                    &self.http,
+                    "Minecraftサーバのプロセスを起動できませんでした",
+                )
+                .await
+                .ok();
             return;
         };
 
         // サーバログを表示して、別スレッドに送信する
-        let (server, srv_msg_rx) = {
-            let mut server = server;
-            let srv_msg_rx = server.logs();
-            (server, srv_msg_rx)
-        };
+        let srv_msg_rx = server.logs();
+        let server = server;
 
         // Minecraftサーバへの標準入力 (stdin) を取得する
         let listner = StdinSender::new(server.stdin);
@@ -79,95 +75,16 @@ impl Handler {
         };
 
         let http = Arc::clone(&self.http);
-        let show_public_ip = self.config.client.show_public_ip.unwrap_or(false);
         let stdin = Arc::clone(&self.thread_stdin);
         let log_thread = Arc::clone(&self.log_thread);
-
-        // メッセージ処理を行うスレッド
-        thread::spawn(move || {
-            let rt = tokio::runtime::Builder::new_current_thread()
-                .enable_all()
-                .build()
-                .unwrap();
-
-            rt.block_on(async {
-                use ServerMessage::*;
-
-                for v in srv_msg_rx {
-                    match v {
-                        Exit => {
-                            println!("サーバが停止しました。");
-
-                            let mut log_thread = log_thread.lock().await;
-
-                            if let Some(ref mut log_thread) = *log_thread {
-                                log_thread.archive(&http).await.ok();
-                            }
-
-                            MessageSender::send("終了しました", &http, channel).await;
-                        }
-                        Done => {
-                            MessageSender::send(
-                                "サーバが起動しました！サーバログをスレッドから確認できます。",
-                                &http,
-                                channel,
-                            )
-                            .await
-                            .unwrap();
-
-                            if show_public_ip {
-                                if let Some(ip) = public_ip::addr_v4().await {
-                                    MessageSender::send(
-                                        format!("サーバアドレスは `{}` です。", ip),
-                                        &http,
-                                        channel,
-                                    )
-                                    .await;
-                                } else {
-                                    println!("IPv4アドレスを取得できませんでした。");
-                                }
-                            }
-
-                            if let Some(ref player_notifier) = player_notifier {
-                                player_notifier.start().unwrap();
-                            }
-                        }
-                        Info(message) => {
-                            if let Some(ref player_notifier) = player_notifier {
-                                if message.contains("joined the game") {
-                                    player_notifier.join().ok();
-                                } else if message.contains("left the game") {
-                                    player_notifier.leave().ok();
-                                }
-                            }
-
-                            // スレッドが設定されているなら、スレッドに送信する
-                            let thread_id = log_thread.lock().await;
-                            if let Some(ref v) = *thread_id {
-                                v.say(message).ok();
-                            }
-                        }
-                        Error(e) => {
-                            MessageSender::send(
-                                format!("エラーが発生しました:\n```{}\n```", e),
-                                &http,
-                                channel,
-                            )
-                            .await;
-                        }
-                    }
-                }
-            });
-
-            // FIXME: Windows限定機能の整理
-            #[cfg(target_os = "windows")]
-            crate::server::close_port(port);
-
-            let mut log_thread = log_thread.blocking_lock();
-            *log_thread = None;
-            let mut stdin = stdin.blocking_lock();
-            *stdin = None;
-        });
+        observe(
+            srv_msg_rx,
+            http,
+            stdin,
+            channel,
+            log_thread,
+            player_notifier,
+        )
     }
 }
 
