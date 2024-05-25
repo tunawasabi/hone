@@ -1,6 +1,5 @@
 use super::log_sender::LogSessionGuildChannel;
 use super::Handler;
-use super::MessageSender;
 use crate::server::{auto_stop_inspect, stdin_sender::StdinSender, ServerBuilder};
 use crate::types::ServerMessage;
 use serenity::model::prelude::ChannelId;
@@ -49,12 +48,13 @@ impl Handler {
             .memory(&self.config.server.memory)
             .build()
         else {
-            MessageSender::send(
-                "Minecraftサーバのプロセスを起動できませんでした",
-                &self.http,
-                channel,
-            )
-            .await;
+            channel
+                .say(
+                    &self.http,
+                    "Minecraftサーバのプロセスを起動できませんでした",
+                )
+                .await
+                .ok();
             return;
         };
 
@@ -104,25 +104,23 @@ impl Handler {
                                 log_thread.archive(&http).await.ok();
                             }
 
-                            MessageSender::send("終了しました", &http, channel).await;
+                            channel.say(&http, "終了しました").await.ok();
                         }
                         Done => {
-                            MessageSender::send(
-                                "サーバが起動しました！サーバログをスレッドから確認できます。",
-                                &http,
-                                channel,
-                            )
-                            .await
-                            .unwrap();
+                            channel
+                                .say(
+                                    &http,
+                                    "サーバが起動しました！サーバログをスレッドから確認できます。",
+                                )
+                                .await
+                                .ok();
 
                             if show_public_ip {
                                 if let Some(ip) = public_ip::addr_v4().await {
-                                    MessageSender::send(
-                                        format!("サーバアドレスは `{}` です。", ip),
-                                        &http,
-                                        channel,
-                                    )
-                                    .await;
+                                    channel
+                                        .say(&http, format!("サーバアドレスは `{}` です。", ip))
+                                        .await
+                                        .ok();
                                 } else {
                                     println!("IPv4アドレスを取得できませんでした。");
                                 }
@@ -148,12 +146,10 @@ impl Handler {
                             }
                         }
                         Error(e) => {
-                            MessageSender::send(
-                                format!("エラーが発生しました:\n```{}\n```", e),
-                                &http,
-                                channel,
-                            )
-                            .await;
+                            channel
+                                .say(&http, format!("エラーが発生しました:\n```{}\n```", e))
+                                .await
+                                .ok();
                         }
                     }
                 }

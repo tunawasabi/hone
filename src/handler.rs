@@ -55,19 +55,6 @@ impl Handler {
     }
 }
 
-struct MessageSender;
-impl MessageSender {
-    async fn send(message: impl AsRef<str>, http: &Http, channel: ChannelId) -> Option<Message> {
-        match channel.say(http, message.as_ref()).await {
-            Ok(msg) => Some(msg),
-            Err(e) => {
-                println!("{}", e);
-                None
-            }
-        }
-    }
-}
-
 #[serenity::async_trait]
 impl EventHandler for Handler {
     async fn message(&self, _: Context, msg: Message) {
