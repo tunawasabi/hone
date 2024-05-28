@@ -1,15 +1,21 @@
-use crate::config::{BackupConfig, ServerConfig};
+use crate::{config::Config, context::ConfigContext};
 use std::{fs, io, path::Path};
 use zip::ZipWriter;
 use zip_extensions::ZipWriterExtensions;
 
-pub fn save_backup(backup_config: Option<BackupConfig>, server_config: ServerConfig) {
-    let Some(config) = backup_config else {
+pub fn save_backup() {
+    let Config {
+        server: server_conf,
+        backup: backup_conf,
+        ..
+    } = ConfigContext::get().unwrap();
+
+    let Some(backup_conf) = backup_conf else {
         return;
     };
 
-    let server_dir = Path::new(&server_config.work_dir);
-    let output_dir = Path::new(&config.output_dir);
+    let server_dir = Path::new(&server_conf.work_dir);
+    let output_dir = Path::new(&backup_conf.output_dir);
 
     read_save_and_write(server_dir, output_dir).unwrap();
 }

@@ -81,7 +81,7 @@ impl EventHandler for Handler {
             // クライアント停止
             "mcsvend" => mcsvend(self).await,
             // バックアップ
-            "mcbackup" => save_backup(self.config.backup.clone(), self.config.server.clone()),
+            "mcbackup" => save_backup(),
             _ => {
                 self.send_message("存在しないコマンドです。").await.ok();
             }
