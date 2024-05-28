@@ -1,10 +1,11 @@
 use crate::types::ServerMessage;
-use std::io;
-use std::io::BufRead;
-use std::io::BufReader;
-use std::process::{Child, ChildStdin, Stdio};
-use std::sync::mpsc;
-use std::thread;
+use std::{
+    cell::Cell,
+    io::{self, BufRead, BufReader},
+    process::{Child, ChildStderr, ChildStdin, ChildStdout, Stdio},
+    sync::mpsc,
+    thread,
+};
 
 pub mod stdin_sender;
 
@@ -24,6 +25,8 @@ pub struct Server {
     #[allow(dead_code)]
     proc: Child,
     pub stdin: ChildStdin,
+    stdout: Cell<Option<ChildStdout>>,
+    stderr: Cell<Option<ChildStderr>>,
 }
 
 impl ServerBuilder {
@@ -78,21 +81,27 @@ impl Server {
 
         let mut child_proc = cmd.spawn()?;
 
+        // `stdin`, `stdout`, `stderr` are piped, so we can unwrap them safely.
         let stdin = child_proc.stdin.take().unwrap();
+        let stdout = Cell::new(Some(child_proc.stdout.take().unwrap()));
+        let stderr = Cell::new(Some(child_proc.stderr.take().unwrap()));
 
         Ok(Self {
-            stdin,
             proc: child_proc,
+            stdin,
+            stdout,
+            stderr,
         })
     }
 
-    pub fn logs(&mut self) -> mpsc::Receiver<ServerMessage> {
+    /// Get the server logs. You can only call this method once.
+    pub fn logs(&self) -> mpsc::Receiver<ServerMessage> {
         let (stdout_tx, rx) = mpsc::channel::<ServerMessage>();
         let stderr_tx = stdout_tx.clone();
 
         // 標準出力を監視する
         {
-            let stdout = self.proc.stdout.take().unwrap();
+            let stdout = self.stdout.replace(None).expect("stdout is not set");
 
             thread::spawn(move || {
                 let mut bufread = BufReader::new(stdout);
@@ -136,7 +145,7 @@ impl Server {
 
         // 標準エラー出力を監視するスレッド
         {
-            let stderr = self.proc.stderr.take().unwrap();
+            let stderr = self.stderr.replace(None).expect("stderr is not set");
 
             thread::spawn(move || {
                 let mut bufread = BufReader::new(stderr);

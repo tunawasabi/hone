@@ -41,7 +41,7 @@ impl Handler {
         let channel = ChannelId::new(self.config.permission.channel_id);
 
         // Minecraft サーバスレッド
-        let Ok(mut server) = ServerBuilder::new()
+        let Ok(server) = ServerBuilder::new()
             .jar_file(&self.config.server.jar_file)
             .work_dir(&self.config.server.work_dir)
             .memory(&self.config.server.memory)
@@ -59,7 +59,6 @@ impl Handler {
 
         // サーバログを表示して、別スレッドに送信する
         let srv_msg_rx = server.logs();
-        let server = server;
 
         // Minecraftサーバへの標準入力 (stdin) を取得する
         let listner = StdinSender::new(server.stdin);
