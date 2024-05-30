@@ -25,7 +25,7 @@ pub fn observe(
         rt.block_on(async {
             use ServerMessage::*;
 
-            let config = ConfigContext::get().unwrap();
+            let config = ConfigContext::get();
             for v in srv_msg_rx {
                 match v {
                     Exit => {
@@ -91,7 +91,7 @@ pub fn observe(
         // FIXME: Windows限定機能の整理
         #[cfg(target_os = "windows")]
         {
-            let config = ConfigContext::get().unwrap();
+            let config = ConfigContext::get();
             crate::server::close_port(config.server.port);
         }
 

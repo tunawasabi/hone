@@ -5,8 +5,12 @@ use std::sync::OnceLock;
 static CONFIG_CONTEXT: OnceLock<Config> = OnceLock::new();
 pub struct ConfigContext;
 impl ConfigContext {
-    pub fn get() -> Option<&'static Config> {
-        CONFIG_CONTEXT.get()
+    pub fn get() -> &'static Config {
+        let Some(ctx) = CONFIG_CONTEXT.get() else {
+            panic!("ConfigContext is not initialized. You must call ConfigContext::set before using ConfigContext::get");
+        };
+
+        ctx
     }
 
     pub fn set(config: Config) -> Result<(), ()> {
