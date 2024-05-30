@@ -109,7 +109,7 @@ mod tests {
     }
 
     #[test]
-    fn auto_stop_when_timeouted_and_no_player() {
+    fn auto_stop_when_timeout_and_no_player() {
         let (tx, rx) = mpsc::channel();
 
         #[allow(unused_variables)]

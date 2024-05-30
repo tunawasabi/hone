@@ -94,13 +94,13 @@ impl EventHandler for Handler {
             .get_channel(ChannelId::new(self.config.permission.channel_id))
             .await
         else {
-            println!("設定で指定されているチャンネルが見つかりません。permisson.channel_id の値を修正してください。");
+            println!("設定で指定されているチャンネルが見つかりません。permission.channel_id の値を修正してください。");
             println!("* BOTがチャンネルのあるサーバに参加しているか確認してください。");
             exit(-1);
         };
 
         let Some(channel) = channel.guild() else {
-            println!("プライベートチャンネル、チャンネルカテゴリーを管理用チャンネルに指定することはできません。permisson.channel_id の値を修正してください。");
+            println!("プライベートチャンネル、チャンネルカテゴリーを管理用チャンネルに指定することはできません。permission.channel_id の値を修正してください。");
             exit(-1);
         };
 

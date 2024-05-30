@@ -13,8 +13,8 @@ const MESSAGE_NUMBER_THRESHOLD: usize = 10;
 const DISCORD_MESSAGE_LENGTH_LIMIT: usize = 900;
 
 // スレッド名の前につける稼働状況
-const RUNNING_INDICATER: &str = "[🏃稼働中]";
-const LOG_INDICATER: &str = "🗒️";
+const RUNNING_INDICATOR: &str = "[🏃稼働中]";
+const LOG_INDICATOR: &str = "🗒️";
 
 pub struct LogSessionGuildChannel {
     channel: GuildChannel,
@@ -24,7 +24,7 @@ pub struct LogSessionGuildChannel {
 impl LogSessionGuildChannel {
     pub async fn new(start_msg: Message, http: Arc<Http>) -> Self {
         let log_thread_name = format!(
-            "{RUNNING_INDICATER} Minecraftサーバログ {}",
+            "{RUNNING_INDICATOR} Minecraftサーバログ {}",
             chrono::Local::now().format("%Y/%m/%d %H:%M")
         );
         let log_thread_builder = CreateThread::new(log_thread_name)
@@ -96,7 +96,7 @@ impl LogSessionGuildChannel {
     pub async fn archive(&mut self, http: &Http) -> Result<()> {
         let name = self.channel.name();
         let edit_thread_builder = EditThread::new()
-            .name(name.replace(RUNNING_INDICATER, LOG_INDICATER))
+            .name(name.replace(RUNNING_INDICATOR, LOG_INDICATOR))
             .archived(true);
 
         self.channel.edit_thread(&http, edit_thread_builder).await

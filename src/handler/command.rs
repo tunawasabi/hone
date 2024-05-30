@@ -61,8 +61,8 @@ impl Handler {
         let srv_msg_rx = server.logs();
 
         // Minecraftサーバへの標準入力 (stdin) を取得する
-        let listner = StdinSender::new(server.stdin);
-        let command_sender = listner.listen();
+        let listener = StdinSender::new(server.stdin);
+        let command_sender = listener.listen();
         let mut stdin = self.thread_stdin.lock().await;
         *stdin = Some(command_sender.clone());
 
