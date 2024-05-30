@@ -25,7 +25,7 @@ pub fn observe(
         rt.block_on(async {
             use ServerMessage::*;
 
-            let config = ConfigContext::get().unwrap();
+            let config = ConfigContext::get();
             for v in srv_msg_rx {
                 match v {
                     Exit => {

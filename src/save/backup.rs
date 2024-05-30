@@ -8,7 +8,7 @@ pub fn save_backup() {
         server: server_conf,
         backup: backup_conf,
         ..
-    } = ConfigContext::get().unwrap();
+    } = ConfigContext::get();
 
     let Some(backup_conf) = backup_conf else {
         return;
