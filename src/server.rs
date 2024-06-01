@@ -7,7 +7,7 @@ use std::{
     thread,
 };
 
-pub mod stdin_sender;
+mod stdin_sender;
 
 mod create;
 pub use create::*;
@@ -24,7 +24,7 @@ pub struct ServerBuilder {
 pub struct Server {
     #[allow(dead_code)]
     proc: Child,
-    pub stdin: ChildStdin,
+    stdin: Cell<Option<ChildStdin>>,
     stdout: Cell<Option<ChildStdout>>,
     stderr: Cell<Option<ChildStderr>>,
 }
@@ -72,9 +72,8 @@ impl Server {
 
         let java_command = ["java", xmx, xms, "-jar", jar_file, "nogui"];
         let mut cmd = self::command_new(&java_command.join(" "));
-
-        // `stdin`, `stdout`, `stderr` must be set to `piped` to read/write from/to the child process.
         cmd.current_dir(work_dir)
+            // `stdin`, `stdout`, `stderr` must be set to `piped` to read/write from/to the child process.
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
@@ -82,7 +81,7 @@ impl Server {
         let mut child_proc = cmd.spawn()?;
 
         // `stdin`, `stdout`, `stderr` are piped, so we can unwrap them safely.
-        let stdin = child_proc.stdin.take().unwrap();
+        let stdin = Cell::new(Some(child_proc.stdin.take().unwrap()));
         let stdout = Cell::new(Some(child_proc.stdout.take().unwrap()));
         let stderr = Cell::new(Some(child_proc.stderr.take().unwrap()));
 
@@ -92,6 +91,13 @@ impl Server {
             stdout,
             stderr,
         })
+    }
+
+    /// Get stdin sender.
+    pub fn stdin_sender(&self) -> mpsc::Sender<String> {
+        let stdin = self.stdin.replace(None).expect("stdin is not set");
+
+        stdin_sender::StdinSender::new(stdin).listen()
     }
 
     /// Get the server logs. You can only call this method once.
@@ -104,10 +110,10 @@ impl Server {
             let stdout = self.stdout.replace(None).expect("stdout is not set");
 
             thread::spawn(move || {
-                let mut bufread = BufReader::new(stdout);
+                let mut stdout_reader = BufReader::new(stdout);
                 let mut buf = String::new();
 
-                while let Ok(lines) = bufread.read_line(&mut buf) {
+                while let Ok(lines) = stdout_reader.read_line(&mut buf) {
                     if lines == 0 {
                         break;
                     }
@@ -148,10 +154,10 @@ impl Server {
             let stderr = self.stderr.replace(None).expect("stderr is not set");
 
             thread::spawn(move || {
-                let mut bufread = BufReader::new(stderr);
+                let mut stderr_reader = BufReader::new(stderr);
                 let mut buf = String::new();
 
-                while let Ok(v) = bufread.read_line(&mut buf) {
+                while let Ok(v) = stderr_reader.read_line(&mut buf) {
                     if v == 0 {
                         break;
                     }
