@@ -15,14 +15,13 @@ mod save;
 mod types;
 
 pub async fn start() {
-    let config = Config::read_from("config.toml").unwrap_or_else(|err| {
-        println!("{}", err);
-        exit(-1);
-    });
-    ConfigContext::set(config.clone()).ok();
+    let Config {
+        client: client_cfg,
+        server: server_cfg,
+        ..
+    } = ConfigContext::get();
 
-    let server_path = Path::new(&config.server.work_dir).join(&config.server.jar_file);
-
+    let server_path = Path::new(&server_cfg.work_dir).join(&server_cfg.jar_file);
     if !server_path.exists() {
         let current = std::env::current_dir().unwrap();
         let current = current.to_str().unwrap();
@@ -37,8 +36,8 @@ pub async fn start() {
         | GatewayIntents::DIRECT_MESSAGES
         | GatewayIntents::MESSAGE_CONTENT;
 
-    let mut client = Client::builder(&config.client.secret, intents)
-        .event_handler(Handler::new(config))
+    let mut client = Client::builder(&client_cfg.secret, intents)
+        .event_handler(Handler::new(ConfigContext::get().clone()))
         .await
         .expect("Err creating client");
 

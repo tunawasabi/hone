@@ -30,6 +30,7 @@ pub struct PermissionConfig {
 #[derive(Deserialize, Clone)]
 pub struct ServerConfig {
     pub work_dir: String,
+    #[cfg(target_os = "windows")]
     pub port: u16,
     pub jar_file: String,
     pub auto_stop: bool,
