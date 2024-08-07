@@ -46,24 +46,16 @@ impl LogSessionGuildChannel {
 
             rt.block_on(async {
                 let mut buf: Vec<String> = Vec::new();
-                loop {
-                    let mut send_flag = false;
-
-                    match rx.recv_timeout(MESSAGE_INTERVAL) {
+                'msg_recv_loop: loop {
+                    let send_flag = match rx.recv_timeout(MESSAGE_INTERVAL) {
                         Ok(v) => {
                             buf.push(v);
-
-                            if buf.len() >= MESSAGE_NUMBER_THRESHOLD {
-                                send_flag = true;
-                            }
+                            buf.len() >= MESSAGE_NUMBER_THRESHOLD
                         }
                         Err(err) => match err {
-                            Timeout => {
-                                if !buf.is_empty() {
-                                    send_flag = true;
-                                }
-                            }
-                            Disconnected => break,
+                            // When the buffer is not empty, send the message
+                            Timeout => !buf.is_empty(),
+                            Disconnected => break 'msg_recv_loop,
                         },
                     };
 
