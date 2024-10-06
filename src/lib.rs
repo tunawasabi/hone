@@ -1,3 +1,5 @@
+#![deny(warnings)]
+
 use context::ConfigContext;
 use serenity::prelude::*;
 use std::path::Path;
