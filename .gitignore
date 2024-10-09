@@ -1,0 +1,6 @@
+/target
+
+# デバッグ用ファイル
+/srv
+config.toml
+.vscode

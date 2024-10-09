@@ -1,0 +1,52 @@
+# hone 設定
+# v 0.5.0
+
+[client] # クライアント設定
+
+# Discord Botのシークレットを設定します
+# https://discord.com/developers/applications でトークンを取得してください。
+secret = "TOKEN"
+
+# サーバ起動時にグローバルIPアドレスとポート番号を表示します。
+show_public_ip = false
+
+[permission] # 権限設定
+
+# BOTが動作するチャンネルのidを数値で指定します。
+#
+# 例
+# ----
+# channel_id = 12345678987654321
+channel_id = 12345678987654321
+
+# BOTを操作できるユーザのidを数値の配列で指定します。
+#
+# user_id = [数字, 数字, 数字]
+user_id = [12345678987654321]
+
+[server] # Minecraftサーバの設定
+
+# サーバが入っているディレクトリを
+# 相対パスで指定します。
+work_dir = "srv"
+
+# サーバが入っているjarファイルのファイル名を
+# 拡張子付きで指定します。
+jar_file = "server.jar"
+
+# ポート番号
+port = 25565
+
+# 自動ストップ
+# ----
+# 2分間サーバにプレイヤーが出入りしなかった場合、
+# サーバが自動で停止します。
+auto_stop = true
+
+# サーバのメモリ使用量を指定します。
+# 数値の後にMまたはGを指定します。
+#
+# 例: 2GB
+# ----
+# memory = "2G"
+memory = "2G"
