@@ -1,6 +1,7 @@
 use self::command::*;
 use crate::config::Config;
 use crate::save::backup::save_backup;
+use serenity::all::UserId;
 use serenity::http::Http;
 use serenity::model::channel::Message;
 use serenity::model::gateway::Ready;
@@ -37,7 +38,7 @@ impl Handler {
     }
 
     async fn send_message(&self, message: impl AsRef<str>) -> Result<Message, SerenityError> {
-        let channel = ChannelId::new(self.config.permission.channel_id);
+        let channel = self.config.permission.channel_id;
         channel.say(&self.http, message.as_ref()).await
     }
 
@@ -46,12 +47,12 @@ impl Handler {
     }
 
     #[inline]
-    fn is_allowed_user(&self, id: u64) -> bool {
+    fn is_allowed_user(&self, id: UserId) -> bool {
         self.config.permission.user_id.contains(&id)
     }
 
     #[inline]
-    fn is_allowed_channel(&self, id: u64) -> bool {
+    fn is_allowed_channel(&self, id: ChannelId) -> bool {
         id == self.config.permission.channel_id
     }
 }
@@ -59,9 +60,7 @@ impl Handler {
 #[serenity::async_trait]
 impl EventHandler for Handler {
     async fn message(&self, _: Context, msg: Message) {
-        if !self.is_allowed_user(msg.author.id.get())
-            || !self.is_allowed_channel(msg.channel_id.get())
-        {
+        if !self.is_allowed_user(msg.author.id) || !self.is_allowed_channel(msg.channel_id) {
             return;
         }
 
@@ -91,7 +90,7 @@ impl EventHandler for Handler {
     async fn ready(&self, ctx: Context, ready: Ready) {
         let Ok(channel) = ctx
             .http
-            .get_channel(ChannelId::new(self.config.permission.channel_id))
+            .get_channel(self.config.permission.channel_id)
             .await
         else {
             println!("設定で指定されているチャンネルが見つかりません。permission.channel_id の値を修正してください。");

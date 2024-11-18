@@ -1,4 +1,5 @@
 use serde_derive::Deserialize;
+use serenity::all::{ChannelId, UserId};
 use std::fs;
 
 #[derive(Deserialize, Clone)]
@@ -20,10 +21,10 @@ pub struct ClientConfig {
 #[derive(Deserialize, Clone)]
 pub struct PermissionConfig {
     /// コマンドを送信できるチャンネル
-    pub channel_id: u64,
+    pub channel_id: ChannelId,
 
     /// コマンドを実行できるユーザ
-    pub user_id: Vec<u64>,
+    pub user_id: Vec<UserId>,
 }
 
 /// Minecraftサーバの設定

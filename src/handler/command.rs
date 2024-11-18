@@ -2,7 +2,6 @@ use super::log_sender::LogSessionGuildChannel;
 use super::observer::observe;
 use super::Handler;
 use crate::server::{auto_stop_inspect, ServerBuilder};
-use serenity::model::prelude::ChannelId;
 use std::sync::Arc;
 
 pub fn parse_command(message: &str) -> Option<Vec<&str>> {
@@ -38,7 +37,7 @@ impl Handler {
         #[cfg(target_os = "windows")]
         crate::server::open_port(port);
 
-        let channel = ChannelId::new(self.config.permission.channel_id);
+        let channel = self.config.permission.channel_id;
 
         // Minecraft サーバスレッド
         let Ok(server) = ServerBuilder::new()
