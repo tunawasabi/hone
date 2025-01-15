@@ -41,8 +41,8 @@ impl Handler {
 
         // Minecraft サーバスレッド
         let Ok(server) = ServerBuilder::new()
-            .jar_file(&self.config.server.jar_file)
-            .work_dir(&self.config.server.work_dir)
+            .jar_file(self.config.server.jar_file.clone())
+            .work_dir(self.config.server.work_dir.clone())
             .memory(&self.config.server.memory)
             .build()
         else {

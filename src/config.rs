@@ -1,6 +1,6 @@
 use serde_derive::Deserialize;
 use serenity::all::{ChannelId, UserId};
-use std::fs;
+use std::{fs, path::PathBuf};
 
 #[derive(Deserialize, Clone)]
 pub struct Config {
@@ -30,10 +30,10 @@ pub struct PermissionConfig {
 /// Minecraftサーバの設定
 #[derive(Deserialize, Clone)]
 pub struct ServerConfig {
-    pub work_dir: String,
+    pub work_dir: PathBuf,
     #[cfg(target_os = "windows")]
     pub port: u16,
-    pub jar_file: String,
+    pub jar_file: PathBuf,
     pub auto_stop: bool,
     pub memory: String,
 }
@@ -41,7 +41,7 @@ pub struct ServerConfig {
 /// バックアップ設定
 #[derive(Deserialize, Clone)]
 pub struct BackupConfig {
-    pub output_dir: String,
+    pub output_dir: PathBuf,
 }
 
 impl Config {
