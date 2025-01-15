@@ -2,6 +2,7 @@ use crate::types::ServerMessage;
 use std::{
     cell::Cell,
     io::{self, BufRead, BufReader},
+    path::PathBuf,
     process::{Child, ChildStderr, ChildStdin, ChildStdout, Stdio},
     sync::mpsc,
     thread,
@@ -16,8 +17,8 @@ mod auto_stop;
 pub use auto_stop::*;
 
 pub struct ServerBuilder {
-    jar_file: Option<String>,
-    work_dir: Option<String>,
+    jar_file: Option<PathBuf>,
+    work_dir: Option<PathBuf>,
     memory: Option<String>,
 }
 
@@ -38,13 +39,13 @@ impl ServerBuilder {
         }
     }
 
-    pub fn jar_file(mut self, jar_file: &str) -> Self {
-        self.jar_file = Some(jar_file.to_string());
+    pub fn jar_file(mut self, jar_file: PathBuf) -> Self {
+        self.jar_file = Some(jar_file);
         self
     }
 
-    pub fn work_dir(mut self, work_dir: &str) -> Self {
-        self.work_dir = Some(work_dir.to_string());
+    pub fn work_dir(mut self, work_dir: PathBuf) -> Self {
+        self.work_dir = Some(work_dir);
         self
     }
 
@@ -66,13 +67,17 @@ impl ServerBuilder {
 
 impl Server {
     /// Create a new Minecraft server process.
-    fn mcserver_new(jar_file: &str, work_dir: &str, memory: &str) -> io::Result<Server> {
+    fn mcserver_new(jar_file: &PathBuf, work_dir: &PathBuf, memory: &str) -> io::Result<Server> {
         let xmx = &format!("-Xmx{}", memory);
         let xms = &format!("-Xms{}", memory);
 
-        let java_command = ["java", xmx, xms, "-jar", jar_file, "nogui"];
-        let mut cmd = self::command_new(&java_command.join(" "));
-        cmd.current_dir(work_dir)
+        let mut cmd = self::command_new();
+        cmd.arg("java")
+            .args([xmx, xms])
+            .arg("-jar")
+            .arg(jar_file)
+            .arg("nogui")
+            .current_dir(work_dir)
             // `stdin`, `stdout`, `stderr` must be set to `piped` to read/write from/to the child process.
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())

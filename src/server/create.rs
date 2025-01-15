@@ -8,15 +8,15 @@ pub use self::not_windows::*;
 mod windows {
     use std::process::Command;
 
-    pub fn command_new(program: &str) -> Command {
+    pub fn command_new() -> Command {
         let mut cmd = Command::new("cmd");
-        cmd.args(["/C", program]);
+        cmd.arg("/C");
         cmd
     }
 
     fn firewall_process_new() -> Command {
-        let mut cmd = command_new("netsh");
-        cmd.arg("advfirewall").arg("firewall");
+        let mut cmd = command_new();
+        cmd.arg("netsh").arg("advfirewall").arg("firewall");
         cmd
     }
 
@@ -58,10 +58,9 @@ mod windows {
 mod not_windows {
     use std::process::Command;
 
-    pub fn command_new(program: &str) -> Command {
+    pub fn command_new() -> Command {
         let mut cmd = Command::new("sh");
-        cmd.arg("-c").arg(program);
-
+        cmd.arg("-c");
         cmd
     }
 }
