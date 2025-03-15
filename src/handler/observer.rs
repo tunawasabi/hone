@@ -91,6 +91,8 @@ pub fn observe(
         // FIXME: Windows限定機能の整理
         #[cfg(target_os = "windows")]
         {
+            use crate::context::ConfigContext;
+
             let config = ConfigContext::get();
             crate::server::close_port(config.server.port);
         }
