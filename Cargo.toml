@@ -17,6 +17,5 @@ serenity = { version = "0.12", default-features = false, features = [
 ] }
 tokio = { version = "1.44.1", features = ["macros", "rt-multi-thread"] }
 chrono = "0.4.40"
-public-ip = "0.2.2"
 zip = "2.2.3"
 zip-extensions = "0.8.1"
