@@ -1,5 +1,5 @@
 use super::LogSessionGuildChannel;
-use crate::{context::ConfigContext, server::PlayerNotifier, types::ServerMessage};
+use crate::{server::PlayerNotifier, types::ServerMessage};
 use serenity::{http::Http, model::prelude::ChannelId, prelude::Mutex};
 use std::{
     sync::mpsc::{Receiver, Sender},
@@ -25,7 +25,6 @@ pub fn observe(
         rt.block_on(async {
             use ServerMessage::*;
 
-            let config = ConfigContext::get();
             for v in srv_msg_rx {
                 match v {
                     Exit => {
@@ -47,17 +46,6 @@ pub fn observe(
                             )
                             .await
                             .ok();
-
-                        if config.client.show_public_ip.unwrap_or(false) {
-                            if let Some(ip) = public_ip::addr_v4().await {
-                                channel
-                                    .say(&http, format!("サーバアドレスは `{}` です。", ip))
-                                    .await
-                                    .ok();
-                            } else {
-                                println!("IPv4アドレスを取得できませんでした。");
-                            }
-                        }
 
                         if let Some(ref player_notifier) = player_notifier {
                             player_notifier.start().unwrap();
@@ -91,6 +79,8 @@ pub fn observe(
         // FIXME: Windows限定機能の整理
         #[cfg(target_os = "windows")]
         {
+            use crate::context::ConfigContext;
+
             let config = ConfigContext::get();
             crate::server::close_port(config.server.port);
         }

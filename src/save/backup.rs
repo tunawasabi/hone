@@ -35,7 +35,7 @@ fn read_save_and_write(server_dir: &Path, output_dir: &Path) -> io::Result<()> {
 
     // Create a backup archive
     let zip = output_dir.join(filename).with_extension("zip");
-    let mut zip = ZipWriter::new(fs::File::create(zip)?);
+    let zip = ZipWriter::new(fs::File::create(zip)?);
     if let Err(e) = zip.create_from_directory(&world_dir) {
         return match e {
             zip::result::ZipError::Io(err) => Err(io::Error::new(
